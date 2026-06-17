@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>システム設計書</title>
+<style>
+:root{
+  --bg:#f6f7fb; --paper:#ffffff; --ink:#18202f; --muted:#687186; --line:#dfe4ee;
+  --primary:#355cde; --primary-soft:#eaf0ff; --accent:#16a085; --warn:#d97706; --danger:#dc2626;
+  --shadow:0 10px 30px rgba(24,32,47,.08); --radius:18px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;line-height:1.75}
+a{color:var(--primary);text-decoration:none} a:hover{text-decoration:underline}
+.layout{display:grid;grid-template-columns:280px 1fr;min-height:100vh}
+aside{position:sticky;top:0;height:100vh;overflow:auto;padding:28px 20px;background:#111827;color:#f9fafb}
+aside .brand{font-weight:800;font-size:18px;line-height:1.4;margin-bottom:18px}
+aside .meta{font-size:12px;color:#b6c0d4;margin-bottom:22px}
+aside a{display:block;color:#dbeafe;padding:8px 10px;border-radius:10px;font-size:14px;text-decoration:none}
+aside a:hover{background:rgba(255,255,255,.08)}
+main{padding:42px;max-width:1180px;width:100%}
+.hero{background:linear-gradient(135deg,#ffffff,#eef3ff);border:1px solid var(--line);border-radius:24px;padding:34px;box-shadow:var(--shadow);margin-bottom:28px}
+h1{font-size:32px;line-height:1.25;margin:0 0 8px} h2{font-size:24px;margin:42px 0 14px;border-left:6px solid var(--primary);padding-left:12px} h3{font-size:18px;margin:26px 0 10px} h4{font-size:15px;margin:18px 0 8px;color:#374151}.lead{font-size:16px;color:#48546a;margin:0}.pill{display:inline-block;border-radius:999px;padding:4px 10px;background:var(--primary-soft);color:var(--primary);font-weight:700;font-size:12px;margin-right:6px}.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin:16px 0;box-shadow:0 4px 18px rgba(24,32,47,.04)}.grid{display:grid;gap:16px}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.grid.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:12px 0 22px}th,td{border-bottom:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top;font-size:14px}th{background:#f1f5ff;color:#273452;font-weight:800}tr:last-child td{border-bottom:none}code,pre{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}code{background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:1px 5px}pre{white-space:pre-wrap;background:#0b1020;color:#e5e7eb;border-radius:14px;padding:16px;overflow:auto;font-size:13px}.note{background:#fff7ed;border:1px solid #fed7aa;border-left:6px solid var(--warn);border-radius:14px;padding:14px 16px;margin:14px 0}.ok{background:#ecfdf5;border:1px solid #bbf7d0;border-left:6px solid var(--accent);border-radius:14px;padding:14px 16px;margin:14px 0}.danger{background:#fef2f2;border:1px solid #fecaca;border-left:6px solid var(--danger);border-radius:14px;padding:14px 16px;margin:14px 0}.muted{color:var(--muted)}.small{font-size:13px}.kbd{font-family:monospace;border:1px solid #c7ceda;border-bottom-width:2px;border-radius:6px;padding:1px 6px;background:#fff}.tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:#eef2ff;color:#3730a3}.tag.must{background:#fee2e2;color:#991b1b}.tag.should{background:#fef3c7;color:#92400e}.tag.could{background:#dcfce7;color:#166534}.diagram{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;overflow:auto;margin:14px 0}.flow{display:flex;align-items:center;gap:10px;min-width:max-content}.node{border:1px solid #c7d2fe;background:#eef2ff;border-radius:14px;padding:10px 13px;min-width:125px;text-align:center;font-weight:700}.node.host{background:#ecfdf5;border-color:#86efac}.node.err{background:#fef2f2;border-color:#fca5a5}.arrow{font-size:24px;color:#64748b}.wire{border:2px solid #111827;border-radius:20px;background:#fbfdff;padding:14px;min-height:380px}.wire .top{height:34px;background:#e5e7eb;border-radius:10px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;font-size:12px;color:#475569}.wire .image{height:140px;border:2px dashed #94a3b8;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#64748b;background:#f8fafc}.wire .input{height:42px;border:1px solid #94a3b8;border-radius:10px;margin-top:12px;background:#fff;display:flex;align-items:center;padding-left:12px;color:#94a3b8}.wire .btn{height:42px;border-radius:10px;background:#355cde;color:white;margin-top:10px;display:flex;align-items:center;justify-content:center;font-weight:800}.wire .box{border:1px solid #d7dce7;border-radius:10px;background:#fff;padding:10px;margin:10px 0;font-size:13px}.wire .split{display:grid;grid-template-columns:1fr 1fr;gap:10px}.er{display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:14px;align-items:start}.entity{border:1px solid #c7d2fe;border-radius:14px;background:#fff;overflow:hidden}.entity h4{margin:0;padding:10px 12px;background:#eef2ff;color:#1e3a8a}.entity ul{margin:0;padding:10px 12px 12px 28px}.entity li{font-size:13px;margin:2px 0}.footer{color:#6b7280;font-size:12px;margin-top:48px;border-top:1px solid var(--line);padding-top:20px}
+@media (max-width: 900px){.layout{grid-template-columns:1fr}aside{position:relative;height:auto}.grid.two,.grid.three,.grid.four{grid-template-columns:1fr}.er{grid-template-columns:1fr}main{padding:22px}.hero{padding:24px}.flow{display:block}.arrow{transform:rotate(90deg);display:block;text-align:center}}
+@media print{aside{display:none}.layout{display:block}main{padding:0}.card,.hero{box-shadow:none}body{background:#fff}}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <div class="brand">謎解き企画用アプリ<br>設計資料</div>
+    <div class="meta">Version 0.1<br>作成日: 2026-06-16</div>
+    <div class="small muted" style="color:#93a3bd;margin:10px 0 6px;">資料リンク</div>
+    <a href="nazotoki_app_requirements.html">全体要件定義書</a><a href="nazotoki_screen_design.html">画面設計書</a><a href="nazotoki_system_design.html">システム設計書</a><a href="nazotoki_api_db_design.html">API・DB設計書</a>
+    <div class="small muted" style="color:#93a3bd;margin:18px 0 6px;">この資料の目次</div>
+    <a href="#position">1. 位置づけ</a><a href="#goals">2. 重要要件</a><a href="#architecture">3. 推奨構成</a><a href="#responsibility">4. 責務分担</a><a href="#state">5. ルーム状態</a><a href="#security">6. セキュリティ</a><a href="#realtime">7. リアルタイム</a><a href="#deployment">8. 環境構成</a><a href="#mvp">9. MVP範囲</a><a href="#open-issues">10. 未決定事項</a>
+  </aside>
+  <main>
+    <section class="hero">
+      <span class="pill">v0.1</span><span class="pill">MVP想定</span>
+      <h1>システム設計書</h1>
+      <p class="lead">技術選定、バックエンド責務、セキュリティ、リアルタイム通信、MVP範囲を整理する資料です。</p>
+    </section>
+    
+<section id="position" class="card">
+  <h2>1. 位置づけ</h2>
+  <p>本資料は、謎解き企画用アプリを実現するための<strong>システム構成・技術選定・バックエンド方針・運用方針</strong>を定義する。詳細なAPI仕様やテーブル定義は「API・DB設計書」に分離する。</p>
+  <div class="note"><strong>要件定義と詳細設計の分離:</strong> 本資料では「なぜその構成にするか」「どの責務をどこに置くか」までを扱い、具体的なエンドポイント名・カラム定義・コード構成は詳細設計で扱う。</div>
+</section>
+
+<section id="goals" class="card">
+  <h2>2. システム上の重要要件</h2>
+  <table>
+    <tr><th>重要度</th><th>要件</th><th>理由</th></tr>
+    <tr><td><span class="tag must">必須</span></td><td>正答データを参加者側へ送らない</td><td>ブラウザの開発者ツールから答えが見える事故を防ぐため。</td></tr>
+    <tr><td><span class="tag must">必須</span></td><td>解答判定と得点加算はサーバー側で行う</td><td>不正な得点操作や二重加算を防ぐため。</td></tr>
+    <tr><td><span class="tag must">必須</span></td><td>出題者側は認証必須</td><td>問題切替・締切・得点操作などの管理機能を保護するため。</td></tr>
+    <tr><td><span class="tag should">推奨</span></td><td>問題状態はリアルタイムに反映する</td><td>イベント中の操作体験を滑らかにするため。</td></tr>
+    <tr><td><span class="tag should">推奨</span></td><td>再接続・ページ更新から復帰できる</td><td>当日の通信トラブルを軽減するため。</td></tr>
+  </table>
+</section>
+
+<section id="architecture" class="card">
+  <h2>3. 推奨システム構成</h2>
+  <div class="diagram">
+    <div class="flow">
+      <div class="node">参加者ブラウザ</div><div class="arrow">↔</div>
+      <div class="node">Next.js App</div><div class="arrow">↔</div>
+      <div class="node host">Server Actions / API</div><div class="arrow">↔</div>
+      <div class="node host">Supabase</div><div class="arrow">↔</div>
+      <div class="node">DB / Auth / Storage / Realtime</div>
+    </div>
+  </div>
+  <h3>3.1 MVP推奨構成</h3>
+  <table>
+    <tr><th>領域</th><th>推奨技術</th><th>採用理由</th></tr>
+    <tr><td>フロントエンド</td><td>Next.js / React / TypeScript</td><td>参加者側と出題者側を同じ技術で実装でき、サーバー側処理も扱いやすい。</td></tr>
+    <tr><td>ホスティング</td><td>Vercel</td><td>Next.jsとの相性が良く、MVPを素早く公開しやすい。</td></tr>
+    <tr><td>DB</td><td>Supabase PostgreSQL</td><td>ルーム・参加者・問題・解答・得点をリレーショナルに管理しやすい。</td></tr>
+    <tr><td>認証</td><td>Supabase Auth</td><td>出題者ログインを簡単に実装できる。</td></tr>
+    <tr><td>画像保存</td><td>Supabase Storage</td><td>問題画像を管理し、公開/非公開の扱いを設計しやすい。</td></tr>
+    <tr><td>リアルタイム</td><td>Supabase Realtime または WebSocket</td><td>問題開始・締切・得点更新を即時反映しやすい。</td></tr>
+  </table>
+  <div class="ok">MVPでは、Next.js + Supabase + Vercel の構成が最も実装速度と管理しやすさのバランスが良い。</div>
+</section>
+
+<section id="responsibility" class="card">
+  <h2>4. 責務分担</h2>
+  <table>
+    <tr><th>処理</th><th>実行場所</th><th>理由</th></tr>
+    <tr><td>問題画像の表示</td><td>フロントエンド</td><td>参加者に見せるため。ただし画像URLの扱いには注意する。</td></tr>
+    <tr><td>解答入力</td><td>フロントエンド</td><td>UI操作として入力を受け付ける。</td></tr>
+    <tr><td>解答判定</td><td>サーバー側</td><td>正答を隠し、不正判定を防ぐため。</td></tr>
+    <tr><td>得点加算</td><td>サーバー側 + DBトランザクション</td><td>二重加算を防ぎ、一貫性を守るため。</td></tr>
+    <tr><td>問題切替</td><td>出題者画面 + サーバー側</td><td>権限確認が必要な操作のため。</td></tr>
+    <tr><td>ランキング集計</td><td>DBまたはサーバー側</td><td>全参加者の得点を一貫して集計するため。</td></tr>
+  </table>
+</section>
+
+<section id="state" class="card">
+  <h2>5. ルーム状態管理</h2>
+  <p>イベント進行は、ルームの状態を中心に管理する。参加者側画面はルーム状態を購読し、自動的に表示を切り替える。</p>
+  <table>
+    <tr><th>状態</th><th>意味</th><th>参加者側表示</th><th>出題者側操作</th></tr>
+    <tr><td>draft</td><td>準備中</td><td>参加不可または準備中表示</td><td>問題登録、設定変更</td></tr>
+    <tr><td>waiting</td><td>参加受付中</td><td>待機画面</td><td>参加者確認、開始</td></tr>
+    <tr><td>question_open</td><td>解答受付中</td><td>問題解答画面</td><td>締切、ヒント公開</td></tr>
+    <tr><td>question_closed</td><td>解答締切</td><td>結果・待機画面</td><td>次問へ、集計確認</td></tr>
+    <tr><td>finished</td><td>企画終了</td><td>終了画面</td><td>ランキング確認、CSV出力</td></tr>
+  </table>
+</section>
+
+<section id="security" class="card">
+  <h2>6. セキュリティ・不正対策方針</h2>
+  <div class="danger"><strong>最重要:</strong> 正答文字列・正答判定ロジック・得点加算条件を参加者側JavaScriptに含めない。</div>
+  <table>
+    <tr><th>リスク</th><th>対策</th></tr>
+    <tr><td>参加者が正答を覗く</td><td>正答はDBに保存し、参加者側には送らない。判定APIは結果のみ返す。</td></tr>
+    <tr><td>解答APIを連打する</td><td>同一問題・同一参加者の正解得点は一度だけ加算する。必要に応じてレート制限を設ける。</td></tr>
+    <tr><td>他チームになりすます</td><td>参加時にparticipant_idとセッションを発行し、以後の送信に使う。</td></tr>
+    <tr><td>出題者画面を不正操作する</td><td>出題者認証とルーム所有者チェックを必須にする。</td></tr>
+    <tr><td>画像URLから未公開問題を見る</td><td>画像の公開範囲、署名付きURL、出題タイミングでのURL発行を検討する。</td></tr>
+  </table>
+</section>
+
+<section id="realtime" class="card">
+  <h2>7. リアルタイム通信方針</h2>
+  <p>次のイベントはリアルタイム反映の対象とする。</p>
+  <ul>
+    <li>ルーム状態変更: waiting → question_open → question_closed → finished</li>
+    <li>現在問題の変更</li>
+    <li>ヒント公開</li>
+    <li>参加者数・解答数・ランキングの更新</li>
+  </ul>
+  <div class="note">リアルタイム通信が不安定な環境に備え、参加者側は一定間隔で現在状態を再取得できるようにする。リアルタイム一本足打法はイベント当日に怖い。</div>
+</section>
+
+<section id="deployment" class="card">
+  <h2>8. 環境構成</h2>
+  <table>
+    <tr><th>環境</th><th>用途</th><th>備考</th></tr>
+    <tr><td>local</td><td>開発者の手元環境</td><td>UI実装、単体確認</td></tr>
+    <tr><td>staging</td><td>イベント前リハーサル</td><td>本番相当の問題・参加人数で動作確認</td></tr>
+    <tr><td>production</td><td>本番企画</td><td>本番データ、出題者アカウント、画像を管理</td></tr>
+  </table>
+</section>
+
+<section id="mvp" class="card">
+  <h2>9. MVP範囲</h2>
+  <h3>9.1 MVPで必ず作る</h3>
+  <ul>
+    <li>ルーム作成</li>
+    <li>参加者のルーム参加</li>
+    <li>問題画像の登録と表示</li>
+    <li>解答送信</li>
+    <li>サーバー側の正誤判定</li>
+    <li>得点加算</li>
+    <li>出題者による問題開始・締切</li>
+  </ul>
+  <h3>9.2 MVP後に追加する</h3>
+  <ul>
+    <li>ヒント機能</li>
+    <li>ランキング公開制御</li>
+    <li>CSV出力</li>
+    <li>表記ゆれ対応</li>
+    <li>複数ルーム同時運用</li>
+    <li>詳細な監査ログ</li>
+  </ul>
+</section>
+
+<section id="open-issues" class="card">
+  <h2>10. 未決定事項</h2>
+  <ul>
+    <li>参加者認証を匿名セッションで済ませるか、チームごとに参加コードを発行するか。</li>
+    <li>画像を事前にすべて配信可能にするか、出題時にだけURLを渡すか。</li>
+    <li>リアルタイム通信にSupabase Realtimeを使うか、独自WebSocketを立てるか。</li>
+    <li>本番時の想定同時接続数。</li>
+    <li>出題者が複数人いる場合の権限分担。</li>
+  </ul>
+</section>
+
+    <div class="footer">本資料は初期検討用です。実装前に、企画形式・参加人数・ネットワーク環境・運営体制に合わせて更新してください。</div>
+  </main>
+</div>
+</body>
+</html>

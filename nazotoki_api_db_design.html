@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API・DB設計書</title>
+<style>
+:root{
+  --bg:#f6f7fb; --paper:#ffffff; --ink:#18202f; --muted:#687186; --line:#dfe4ee;
+  --primary:#355cde; --primary-soft:#eaf0ff; --accent:#16a085; --warn:#d97706; --danger:#dc2626;
+  --shadow:0 10px 30px rgba(24,32,47,.08); --radius:18px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;line-height:1.75}
+a{color:var(--primary);text-decoration:none} a:hover{text-decoration:underline}
+.layout{display:grid;grid-template-columns:280px 1fr;min-height:100vh}
+aside{position:sticky;top:0;height:100vh;overflow:auto;padding:28px 20px;background:#111827;color:#f9fafb}
+aside .brand{font-weight:800;font-size:18px;line-height:1.4;margin-bottom:18px}
+aside .meta{font-size:12px;color:#b6c0d4;margin-bottom:22px}
+aside a{display:block;color:#dbeafe;padding:8px 10px;border-radius:10px;font-size:14px;text-decoration:none}
+aside a:hover{background:rgba(255,255,255,.08)}
+main{padding:42px;max-width:1180px;width:100%}
+.hero{background:linear-gradient(135deg,#ffffff,#eef3ff);border:1px solid var(--line);border-radius:24px;padding:34px;box-shadow:var(--shadow);margin-bottom:28px}
+h1{font-size:32px;line-height:1.25;margin:0 0 8px} h2{font-size:24px;margin:42px 0 14px;border-left:6px solid var(--primary);padding-left:12px} h3{font-size:18px;margin:26px 0 10px} h4{font-size:15px;margin:18px 0 8px;color:#374151}.lead{font-size:16px;color:#48546a;margin:0}.pill{display:inline-block;border-radius:999px;padding:4px 10px;background:var(--primary-soft);color:var(--primary);font-weight:700;font-size:12px;margin-right:6px}.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin:16px 0;box-shadow:0 4px 18px rgba(24,32,47,.04)}.grid{display:grid;gap:16px}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.grid.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:12px 0 22px}th,td{border-bottom:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top;font-size:14px}th{background:#f1f5ff;color:#273452;font-weight:800}tr:last-child td{border-bottom:none}code,pre{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}code{background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:1px 5px}pre{white-space:pre-wrap;background:#0b1020;color:#e5e7eb;border-radius:14px;padding:16px;overflow:auto;font-size:13px}.note{background:#fff7ed;border:1px solid #fed7aa;border-left:6px solid var(--warn);border-radius:14px;padding:14px 16px;margin:14px 0}.ok{background:#ecfdf5;border:1px solid #bbf7d0;border-left:6px solid var(--accent);border-radius:14px;padding:14px 16px;margin:14px 0}.danger{background:#fef2f2;border:1px solid #fecaca;border-left:6px solid var(--danger);border-radius:14px;padding:14px 16px;margin:14px 0}.muted{color:var(--muted)}.small{font-size:13px}.kbd{font-family:monospace;border:1px solid #c7ceda;border-bottom-width:2px;border-radius:6px;padding:1px 6px;background:#fff}.tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:#eef2ff;color:#3730a3}.tag.must{background:#fee2e2;color:#991b1b}.tag.should{background:#fef3c7;color:#92400e}.tag.could{background:#dcfce7;color:#166534}.diagram{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;overflow:auto;margin:14px 0}.flow{display:flex;align-items:center;gap:10px;min-width:max-content}.node{border:1px solid #c7d2fe;background:#eef2ff;border-radius:14px;padding:10px 13px;min-width:125px;text-align:center;font-weight:700}.node.host{background:#ecfdf5;border-color:#86efac}.node.err{background:#fef2f2;border-color:#fca5a5}.arrow{font-size:24px;color:#64748b}.wire{border:2px solid #111827;border-radius:20px;background:#fbfdff;padding:14px;min-height:380px}.wire .top{height:34px;background:#e5e7eb;border-radius:10px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;font-size:12px;color:#475569}.wire .image{height:140px;border:2px dashed #94a3b8;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#64748b;background:#f8fafc}.wire .input{height:42px;border:1px solid #94a3b8;border-radius:10px;margin-top:12px;background:#fff;display:flex;align-items:center;padding-left:12px;color:#94a3b8}.wire .btn{height:42px;border-radius:10px;background:#355cde;color:white;margin-top:10px;display:flex;align-items:center;justify-content:center;font-weight:800}.wire .box{border:1px solid #d7dce7;border-radius:10px;background:#fff;padding:10px;margin:10px 0;font-size:13px}.wire .split{display:grid;grid-template-columns:1fr 1fr;gap:10px}.er{display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:14px;align-items:start}.entity{border:1px solid #c7d2fe;border-radius:14px;background:#fff;overflow:hidden}.entity h4{margin:0;padding:10px 12px;background:#eef2ff;color:#1e3a8a}.entity ul{margin:0;padding:10px 12px 12px 28px}.entity li{font-size:13px;margin:2px 0}.footer{color:#6b7280;font-size:12px;margin-top:48px;border-top:1px solid var(--line);padding-top:20px}
+@media (max-width: 900px){.layout{grid-template-columns:1fr}aside{position:relative;height:auto}.grid.two,.grid.three,.grid.four{grid-template-columns:1fr}.er{grid-template-columns:1fr}main{padding:22px}.hero{padding:24px}.flow{display:block}.arrow{transform:rotate(90deg);display:block;text-align:center}}
+@media print{aside{display:none}.layout{display:block}main{padding:0}.card,.hero{box-shadow:none}body{background:#fff}}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <div class="brand">謎解き企画用アプリ<br>設計資料</div>
+    <div class="meta">Version 0.1<br>作成日: 2026-06-16</div>
+    <div class="small muted" style="color:#93a3bd;margin:10px 0 6px;">資料リンク</div>
+    <a href="nazotoki_app_requirements.html">全体要件定義書</a><a href="nazotoki_screen_design.html">画面設計書</a><a href="nazotoki_system_design.html">システム設計書</a><a href="nazotoki_api_db_design.html">API・DB設計書</a>
+    <div class="small muted" style="color:#93a3bd;margin:18px 0 6px;">この資料の目次</div>
+    <a href="#position">1. 位置づけ</a><a href="#er">2. ER図</a><a href="#tables">3. テーブル概要</a><a href="#rules">4. データ制約</a><a href="#api-policy">5. API方針</a><a href="#participant-api">6. 参加者API</a><a href="#host-api">7. 出題者API</a><a href="#payloads">8. 例</a><a href="#normalization">9. 正規化</a><a href="#transactions">10. トランザクション</a><a href="#realtime-events">11. リアルタイムイベント</a><a href="#open-issues">12. 未決定事項</a>
+  </aside>
+  <main>
+    <section class="hero">
+      <span class="pill">v0.1</span><span class="pill">MVP想定</span>
+      <h1>API・DB設計書</h1>
+      <p class="lead">ER図、テーブル概要、API一覧、解答判定・得点加算の初期設計を整理する資料です。</p>
+    </section>
+    
+<section id="position" class="card">
+  <h2>1. 位置づけ</h2>
+  <p>本資料は、謎解き企画用アプリの<strong>ER図・DB設計・API設計</strong>の初期案を定義する。要件定義・画面設計・システム設計をもとに、実装時のデータ構造とサーバー処理を具体化するための資料である。</p>
+</section>
+
+<section id="er" class="card">
+  <h2>2. ER図 初期案</h2>
+  <div class="diagram">
+    <div class="er">
+      <div class="entity"><h4>hosts</h4><ul><li>id PK</li><li>email</li><li>display_name</li><li>created_at</li></ul></div>
+      <div class="entity"><h4>rooms</h4><ul><li>id PK</li><li>host_id FK</li><li>room_code</li><li>title</li><li>status</li><li>current_question_id</li><li>created_at</li></ul></div>
+      <div class="entity"><h4>participants</h4><ul><li>id PK</li><li>room_id FK</li><li>name</li><li>session_token_hash</li><li>score_total</li><li>joined_at</li></ul></div>
+      <div class="entity"><h4>questions</h4><ul><li>id PK</li><li>room_id FK</li><li>order_no</li><li>title</li><li>image_path</li><li>answer_text</li><li>points</li><li>status</li></ul></div>
+      <div class="entity"><h4>answer_aliases</h4><ul><li>id PK</li><li>question_id FK</li><li>alias_text</li><li>normalized_text</li></ul></div>
+      <div class="entity"><h4>submissions</h4><ul><li>id PK</li><li>participant_id FK</li><li>question_id FK</li><li>submitted_text</li><li>normalized_text</li><li>is_correct</li><li>submitted_at</li></ul></div>
+      <div class="entity"><h4>score_events</h4><ul><li>id PK</li><li>participant_id FK</li><li>question_id FK</li><li>points</li><li>reason</li><li>created_at</li></ul></div>
+      <div class="entity"><h4>room_events</h4><ul><li>id PK</li><li>room_id FK</li><li>event_type</li><li>payload</li><li>created_by</li><li>created_at</li></ul></div>
+      <div class="entity"><h4>hints</h4><ul><li>id PK</li><li>question_id FK</li><li>content</li><li>release_status</li><li>released_at</li></ul></div>
+    </div>
+  </div>
+  <p class="small muted">関係: hosts 1 - N rooms、rooms 1 - N participants、rooms 1 - N questions、questions 1 - N submissions、participants 1 - N submissions。</p>
+</section>
+
+<section id="tables" class="card">
+  <h2>3. テーブル概要</h2>
+  <table>
+    <tr><th>テーブル</th><th>役割</th><th>主な注意点</th></tr>
+    <tr><td>hosts</td><td>出題者アカウント</td><td>Supabase AuthのユーザーIDと対応させる。</td></tr>
+    <tr><td>rooms</td><td>企画ルーム</td><td>room_codeは参加者が入力する短いコード。重複を防ぐ。</td></tr>
+    <tr><td>participants</td><td>参加者・チーム</td><td>同一ルーム内で名前重複を禁止するか検討する。</td></tr>
+    <tr><td>questions</td><td>問題情報</td><td>answer_textは参加者に返さない。画像パスの公開範囲に注意。</td></tr>
+    <tr><td>answer_aliases</td><td>別解・表記ゆれ</td><td>正答候補を複数登録する場合に使う。</td></tr>
+    <tr><td>submissions</td><td>提出ログ</td><td>正解・不正解を問わず履歴を残す。</td></tr>
+    <tr><td>score_events</td><td>得点加算ログ</td><td>得点の二重加算防止のため、participant_id + question_id に一意制約を検討する。</td></tr>
+    <tr><td>room_events</td><td>進行ログ</td><td>誤操作やトラブル時の確認に使う。</td></tr>
+    <tr><td>hints</td><td>ヒント</td><td>公開前ヒントを参加者へ返さない。</td></tr>
+  </table>
+</section>
+
+<section id="rules" class="card">
+  <h2>4. データ制約・重要ルール</h2>
+  <table>
+    <tr><th>対象</th><th>制約</th><th>目的</th></tr>
+    <tr><td>rooms.room_code</td><td>一意</td><td>ルーム参加時の衝突を防ぐ。</td></tr>
+    <tr><td>participants</td><td>room_id + name を一意にするか検討</td><td>ランキング表示の混乱を避ける。</td></tr>
+    <tr><td>questions</td><td>room_id + order_no を一意</td><td>問題順序の重複を防ぐ。</td></tr>
+    <tr><td>score_events</td><td>participant_id + question_id を一意</td><td>同一問題での得点二重加算を防ぐ。</td></tr>
+    <tr><td>submissions</td><td>submitted_textは保存するが、必要に応じて表示制限</td><td>不適切入力や個人情報混入に備える。</td></tr>
+  </table>
+  <div class="danger">得点の真実は score_events か submissions から再集計できる状態にする。participants.score_total だけに依存すると、障害時に復旧しづらい。</div>
+</section>
+
+<section id="api-policy" class="card">
+  <h2>5. API設計方針</h2>
+  <ul>
+    <li>参加者向けAPIと出題者向けAPIを明確に分ける。</li>
+    <li>出題者向けAPIは認証・ルーム所有者チェックを必須にする。</li>
+    <li>参加者向けAPIはparticipant_idとセッション情報を検証する。</li>
+    <li>解答判定APIは正答文字列を返さず、結果と得点差分のみ返す。</li>
+    <li>得点加算はDBトランザクション内で行う。</li>
+  </ul>
+</section>
+
+<section id="participant-api" class="card">
+  <h2>6. 参加者向けAPI 初期案</h2>
+  <table>
+    <tr><th>メソッド</th><th>パス</th><th>目的</th><th>主な入力</th><th>主な出力</th></tr>
+    <tr><td>POST</td><td><code>/api/rooms/join</code></td><td>ルーム参加</td><td>room_code, participant_name</td><td>participant_id, room_id, session_token</td></tr>
+    <tr><td>GET</td><td><code>/api/rooms/{roomId}/state</code></td><td>ルーム状態取得</td><td>participant session</td><td>room_status, current_question_summary</td></tr>
+    <tr><td>GET</td><td><code>/api/questions/current</code></td><td>現在問題取得</td><td>room_id, participant session</td><td>question_id, title, image_url, points, remaining_time</td></tr>
+    <tr><td>POST</td><td><code>/api/submissions</code></td><td>解答送信</td><td>participant_id, question_id, answer_text</td><td>is_correct, added_points, total_score, message</td></tr>
+    <tr><td>GET</td><td><code>/api/me/score</code></td><td>自分の得点取得</td><td>participant session</td><td>score_total, correct_count, rank</td></tr>
+    <tr><td>GET</td><td><code>/api/ranking</code></td><td>ランキング取得</td><td>room_id</td><td>ranking list</td></tr>
+  </table>
+</section>
+
+<section id="host-api" class="card">
+  <h2>7. 出題者向けAPI 初期案</h2>
+  <table>
+    <tr><th>メソッド</th><th>パス</th><th>目的</th><th>主な入力</th><th>主な出力</th></tr>
+    <tr><td>POST</td><td><code>/api/host/rooms</code></td><td>ルーム作成</td><td>title, settings</td><td>room_id, room_code</td></tr>
+    <tr><td>GET</td><td><code>/api/host/rooms</code></td><td>ルーム一覧取得</td><td>host auth</td><td>rooms</td></tr>
+    <tr><td>POST</td><td><code>/api/host/questions</code></td><td>問題作成</td><td>room_id, title, answer, points, image</td><td>question_id</td></tr>
+    <tr><td>PATCH</td><td><code>/api/host/questions/{questionId}</code></td><td>問題更新</td><td>title, answer, points, image</td><td>updated question</td></tr>
+    <tr><td>POST</td><td><code>/api/host/rooms/{roomId}/start</code></td><td>ルーム開始</td><td>room_id</td><td>room_status</td></tr>
+    <tr><td>POST</td><td><code>/api/host/questions/{questionId}/open</code></td><td>問題開始</td><td>question_id</td><td>room_status, current_question</td></tr>
+    <tr><td>POST</td><td><code>/api/host/questions/{questionId}/close</code></td><td>問題締切</td><td>question_id</td><td>summary</td></tr>
+    <tr><td>GET</td><td><code>/api/host/rooms/{roomId}/submissions</code></td><td>解答状況取得</td><td>room_id</td><td>submission list, stats</td></tr>
+    <tr><td>GET</td><td><code>/api/host/rooms/{roomId}/ranking.csv</code></td><td>ランキングCSV出力</td><td>room_id</td><td>CSV</td></tr>
+  </table>
+</section>
+
+<section id="payloads" class="card">
+  <h2>8. 主要リクエスト・レスポンス例</h2>
+  <h3>8.1 解答送信</h3>
+  <pre>POST /api/submissions
+Request:
+{
+  "participantId": "p_123",
+  "questionId": "q_003",
+  "answerText": "ひらめき"
+}
+
+Response:
+{
+  "isCorrect": true,
+  "addedPoints": 10,
+  "totalScore": 30,
+  "message": "正解！10点獲得しました"
+}</pre>
+  <div class="note">不正解時も、正答文字列・別解一覧・判定条件は返さない。</div>
+
+  <h3>8.2 現在問題取得</h3>
+  <pre>GET /api/questions/current
+Response:
+{
+  "questionId": "q_003",
+  "orderNo": 3,
+  "title": "ひらめきの扉",
+  "imageUrl": "https://.../signed-url",
+  "points": 10,
+  "status": "open",
+  "remainingSeconds": 180
+}</pre>
+</section>
+
+<section id="normalization" class="card">
+  <h2>9. 解答正規化ルール</h2>
+  <p>判定前に解答文字列を正規化する。どこまで許容するかは謎解きの難易度と演出に影響するため、問題ごとに設定可能にするのが望ましい。</p>
+  <table>
+    <tr><th>処理</th><th>初期方針</th><th>例</th></tr>
+    <tr><td>前後空白除去</td><td>必須</td><td>「 こたえ 」→「こたえ」</td></tr>
+    <tr><td>全角/半角統一</td><td>推奨</td><td>ＡＢＣ → ABC</td></tr>
+    <tr><td>大文字/小文字統一</td><td>英字問題では推奨</td><td>Answer → answer</td></tr>
+    <tr><td>ひらがな/カタカナ統一</td><td>問題ごとに検討</td><td>カギ → かぎ</td></tr>
+    <tr><td>記号除去</td><td>慎重に検討</td><td>「あ・い」→「あい」は意図とズレる可能性あり</td></tr>
+  </table>
+</section>
+
+<section id="transactions" class="card">
+  <h2>10. 得点加算のトランザクション方針</h2>
+  <ol>
+    <li>参加者セッションを検証する。</li>
+    <li>問題が解答受付中か確認する。</li>
+    <li>解答を正規化する。</li>
+    <li>正答・別解と照合する。</li>
+    <li>submissionsに提出ログを保存する。</li>
+    <li>正解かつ未加点の場合のみscore_eventsを作成する。</li>
+    <li>participants.score_totalを更新する、またはscore_eventsから再集計する。</li>
+    <li>結果のみを参加者へ返す。</li>
+  </ol>
+  <div class="ok">score_eventsに一意制約を置くと、API連打や通信リトライ時にも二重加点を防ぎやすい。</div>
+</section>
+
+<section id="realtime-events" class="card">
+  <h2>11. リアルタイムイベント</h2>
+  <table>
+    <tr><th>イベント名</th><th>発生タイミング</th><th>購読者</th><th>用途</th></tr>
+    <tr><td>room_status_changed</td><td>ルーム状態変更</td><td>参加者、出題者</td><td>画面切替</td></tr>
+    <tr><td>current_question_changed</td><td>問題開始・次問移動</td><td>参加者、出題者</td><td>問題表示更新</td></tr>
+    <tr><td>submission_created</td><td>解答送信</td><td>出題者</td><td>解答状況更新</td></tr>
+    <tr><td>score_updated</td><td>得点加算</td><td>参加者、出題者</td><td>得点・ランキング更新</td></tr>
+    <tr><td>hint_released</td><td>ヒント公開</td><td>参加者</td><td>ヒント表示</td></tr>
+  </table>
+</section>
+
+<section id="open-issues" class="card">
+  <h2>12. 未決定事項</h2>
+  <ul>
+    <li>参加者セッションをCookieで扱うか、localStorageで扱うか。</li>
+    <li>問題画像URLを署名付きURLにするか、公開URLにするか。</li>
+    <li>score_totalを冗長保持するか、毎回score_eventsから集計するか。</li>
+    <li>複数正解・部分点・早押しボーナスを設計に入れるか。</li>
+    <li>参加者の解答ログを出題者にどこまで見せるか。</li>
+  </ul>
+</section>
+
+    <div class="footer">本資料は初期検討用です。実装前に、企画形式・参加人数・ネットワーク環境・運営体制に合わせて更新してください。</div>
+  </main>
+</div>
+</body>
+</html>

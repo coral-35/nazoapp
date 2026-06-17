@@ -1,0 +1,52 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Codex向け実装指示書</title><style>
+:root{--bg:#f7f7fb;--paper:#fff;--text:#222436;--muted:#5f6272;--line:#dedfee;--primary:#3b4cca;--soft:#eef0ff;--danger:#c0392b;--ok:#247a3f;--code:#f2f3f8}*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",Meiryo,sans-serif;line-height:1.75;background:var(--bg);color:var(--text)}header{background:linear-gradient(135deg,#2f3e9e,#5c6cff);color:#fff;padding:46px 24px 34px}header .inner,main,footer{max-width:1080px;margin:0 auto}header h1{margin:0 0 8px;font-size:2rem;letter-spacing:.03em}header p{margin:0;opacity:.92}main{padding:28px 20px 64px}section{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:28px;margin:22px 0;box-shadow:0 10px 30px rgba(22,26,60,.06)}h2{margin:0 0 16px;padding-bottom:10px;border-bottom:2px solid var(--soft);color:#20276a}h3{margin:24px 0 8px;color:#273070}h4{margin:18px 0 6px}p{margin:8px 0 14px}ul,ol{padding-left:1.4rem}li{margin:4px 0}table{width:100%;border-collapse:collapse;margin:14px 0;border-radius:12px;overflow:hidden}th,td{border:1px solid var(--line);padding:10px 12px;vertical-align:top}th{background:var(--soft);color:#20276a;text-align:left}pre{background:var(--code);border:1px solid var(--line);border-radius:12px;padding:14px;overflow-x:auto;line-height:1.55}code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}.note{border-left:5px solid var(--primary);background:#fafbff;padding:12px 14px;border-radius:10px;margin:12px 0}.warn{border-left:5px solid var(--danger);background:#fff6f4;padding:12px 14px;border-radius:10px;margin:12px 0}.ok{border-left:5px solid var(--ok);background:#f4fff7;padding:12px 14px;border-radius:10px;margin:12px 0}.small{color:var(--muted);font-size:.92rem}.toc a{color:#273070;text-decoration:none}.toc a:hover{text-decoration:underline}footer{color:var(--muted);padding:24px 20px 48px;font-size:.9rem}@media(max-width:680px){header{padding:36px 18px 28px}header h1{font-size:1.55rem}section{padding:20px;border-radius:14px}table{font-size:.92rem}}
+</style></head><body><header><div class="inner"><h1>Codex向け実装指示書</h1><p>AIコーディングエージェントへ渡すための実装ルール・順序・禁止事項</p><p class="small">作成日: 2026-06-16 / 対象: 謎解き企画用アプリ</p></div></header><main>
+<section class="toc"><h2>目次</h2><ol><li><a href="#goal">実装ゴール</a></li><li><a href="#stack">技術スタック</a></li><li><a href="#rules">実装ルール・禁止事項</a></li><li><a href="#structure">推奨ディレクトリ構成</a></li><li><a href="#env">環境変数</a></li><li><a href="#steps">Codexへの実装依頼順序</a></li><li><a href="#prompt">Codex用プロンプト例</a></li></ol></section>
+<section id="goal"><h2>1. 実装ゴール</h2><p>本資料は、CodexまたはAIコーディングエージェントに謎解き企画用Webアプリを実装させるための指示書である。既存資料で定義した要件・画面・システム・API/DB設計から逸脱しないように、実装順序と守るべき制約を明記する。</p><div class="note">実装の最優先事項は「正答情報の秘匿」「得点の整合性」「本番中の操作ミス防止」である。</div></section>
+<section id="stack"><h2>2. 技術スタック</h2><table><tr><th>領域</th><th>採用候補</th><th>理由</th></tr><tr><td>フロントエンド</td><td>Next.js App Router + TypeScript</td><td>画面とサーバー処理を同一プロジェクトで扱いやすい。</td></tr><tr><td>UI</td><td>CSS Modules または Tailwind CSS</td><td>MVPでは高速に画面を組みやすい。</td></tr><tr><td>DB</td><td>Supabase Postgres</td><td>ルーム・参加者・問題・解答・得点の関係を表現しやすい。</td></tr><tr><td>認証</td><td>Supabase Auth</td><td>出題者ログインに利用する。</td></tr><tr><td>画像保存</td><td>Supabase Storage</td><td>問題画像を保存する。</td></tr><tr><td>リアルタイム</td><td>Supabase Realtime またはポーリング</td><td>MVPではポーリングでも可。必要に応じてRealtimeを追加する。</td></tr><tr><td>デプロイ</td><td>Vercel</td><td>Next.jsとの相性がよい。</td></tr></table></section>
+<section id="rules"><h2>3. 実装ルール・禁止事項</h2><h3>3.1 必ず守ること</h3><ul><li>正答判定はサーバー側で行う。</li><li>参加者側のHTML、JavaScript、APIレスポンスに正答文字列を含めない。</li><li>Supabaseのservice role keyをクライアントコードに含めない。</li><li>出題者操作は認証済みユーザーのみ許可する。</li><li>得点加算はAPI側またはDB側で一貫して処理する。</li><li>同一参加者・同一問題の二重得点をDB制約で防ぐ。</li><li>エラー時は参加者に分かるメッセージを表示する。</li></ul><h3>3.2 禁止事項</h3><div class="warn"><ul><li>正答一覧をクライアントへ送る実装は禁止。</li><li>localStorageだけで得点を管理する実装は禁止。</li><li>参加者から送られた得点値をそのまま信用する実装は禁止。</li><li>未認証で問題作成・問題開始・締切ができるAPIは禁止。</li><li>秘密鍵をNEXT_PUBLIC_付き環境変数に入れることは禁止。</li></ul></div></section>
+<section id="structure"><h2>4. 推奨ディレクトリ構成</h2><pre><code>nazotoki-app/
+├── app/
+│   ├── page.tsx
+│   ├── join/page.tsx
+│   ├── play/[roomCode]/page.tsx
+│   ├── admin/login/page.tsx
+│   ├── admin/rooms/page.tsx
+│   ├── admin/rooms/[roomId]/page.tsx
+│   └── api/
+│       ├── join-room/route.ts
+│       ├── submit-answer/route.ts
+│       ├── current-question/route.ts
+│       └── admin/
+│           ├── create-room/route.ts
+│           ├── create-question/route.ts
+│           ├── start-question/route.ts
+│           └── close-question/route.ts
+├── components/
+│   ├── participant/
+│   ├── admin/
+│   └── common/
+├── lib/
+│   ├── supabaseClient.ts
+│   ├── supabaseAdmin.ts
+│   ├── answerNormalize.ts
+│   └── auth.ts
+├── types/database.ts
+├── supabase/schema.sql
+└── README.md</code></pre></section>
+<section id="env"><h2>5. 環境変数</h2><table><tr><th>変数名</th><th>用途</th><th>公開可否</th></tr><tr><td>NEXT_PUBLIC_SUPABASE_URL</td><td>SupabaseプロジェクトURL</td><td>公開可</td></tr><tr><td>NEXT_PUBLIC_SUPABASE_ANON_KEY</td><td>クライアント用匿名キー</td><td>公開可</td></tr><tr><td>SUPABASE_SERVICE_ROLE_KEY</td><td>サーバー側管理操作用キー</td><td>非公開</td></tr><tr><td>NEXT_PUBLIC_APP_URL</td><td>アプリURL</td><td>公開可</td></tr></table><div class="warn">SUPABASE_SERVICE_ROLE_KEYはサーバー側でのみ利用する。NEXT_PUBLIC_を付けてはいけない。</div></section>
+<section id="steps"><h2>6. Codexへの実装依頼順序</h2><ol><li>プロジェクト初期化と基本レイアウト作成</li><li>Supabase接続設定と環境変数読み込み</li><li>DBスキーマSQL作成</li><li>出題者ログイン画面と認証処理</li><li>出題者ルーム作成画面</li><li>問題登録画面と画像アップロード</li><li>参加者ルーム参加画面</li><li>参加者問題表示画面</li><li>解答送信APIと正誤判定</li><li>得点一覧画面</li><li>受け入れテストの実行と修正</li><li>Vercelデプロイ準備</li></ol></section>
+<section id="prompt"><h2>7. Codex用プロンプト例</h2><pre><code>あなたはNext.js、TypeScript、Supabaseに詳しいエンジニアです。
+謎解き企画用WebアプリをMVP範囲で実装してください。
+
+必ず守ること:
+- 正答判定はサーバー側で行う
+- 正答を参加者側に返さない
+- SUPABASE_SERVICE_ROLE_KEYをクライアントに露出しない
+- 同一参加者・同一問題の二重得点を防ぐ
+- まず実装方針を説明してからファイル単位で変更する
+- 変更後に動作確認手順を提示する
+
+今回のタスク:
+[ここにStepごとの依頼を書く]</code></pre></section>
+</main><footer><p>本資料は、謎解き企画用Webアプリの実装準備を目的とした設計ドキュメントです。要件確定後、実装状況に合わせて更新してください。</p></footer></body></html>

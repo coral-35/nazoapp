@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>謎解き企画用アプリ 要件定義書 v0.2</title>
+  <style>
+    :root {
+      --bg: #f7f7fb;
+      --paper: #ffffff;
+      --ink: #1f2937;
+      --muted: #6b7280;
+      --line: #d9dee8;
+      --brand: #4f46e5;
+      --brand-soft: #eef2ff;
+      --accent: #0f766e;
+      --warn: #b45309;
+      --danger: #b91c1c;
+      --ok: #047857;
+      --code: #111827;
+      --shadow: 0 12px 30px rgba(31, 41, 55, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+      color: var(--ink);
+      background: linear-gradient(180deg, #eef2ff 0%, var(--bg) 280px);
+      line-height: 1.75;
+    }
+    .page {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 40px 22px 80px;
+    }
+    header.hero {
+      background: var(--paper);
+      border: 1px solid rgba(79, 70, 229, 0.18);
+      box-shadow: var(--shadow);
+      border-radius: 26px;
+      padding: 42px;
+      margin-bottom: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    header.hero::after {
+      content: "";
+      position: absolute;
+      right: -60px;
+      top: -60px;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(79,70,229,.18), rgba(79,70,229,0));
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--brand-soft);
+      color: var(--brand);
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+    h1 {
+      margin: 0 0 14px;
+      font-size: clamp(30px, 4.8vw, 52px);
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+    }
+    .subtitle {
+      max-width: 790px;
+      color: var(--muted);
+      font-size: 17px;
+      margin: 0;
+    }
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 26px;
+    }
+    .meta div {
+      background: #f9fafb;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+    .meta span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.2;
+    }
+    .meta strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 14px;
+    }
+    nav.toc, section {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: 0 8px 22px rgba(31, 41, 55, 0.045);
+      padding: 28px;
+      margin: 18px 0;
+    }
+    nav.toc h2, section h2 {
+      margin-top: 0;
+      border-bottom: 2px solid #eef2f7;
+      padding-bottom: 10px;
+      font-size: 24px;
+      letter-spacing: -0.02em;
+    }
+    h3 {
+      margin: 28px 0 10px;
+      font-size: 19px;
+      color: #111827;
+    }
+    h4 {
+      margin: 22px 0 8px;
+      font-size: 16px;
+    }
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .toc ol {
+      columns: 2;
+      column-gap: 44px;
+      padding-left: 22px;
+      margin: 0;
+    }
+    .toc li { break-inside: avoid; margin: 5px 0; }
+    .lead {
+      background: #f8fafc;
+      border-left: 5px solid var(--brand);
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin: 18px 0 0;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 18px;
+      padding: 18px;
+    }
+    .card h3, .card h4 { margin-top: 0; }
+    .tag {
+      display: inline-block;
+      margin: 2px 4px 2px 0;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      color: #374151;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .tag.must { background: #ecfdf5; color: var(--ok); }
+    .tag.later { background: #fff7ed; color: var(--warn); }
+    .tag.security { background: #fef2f2; color: var(--danger); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 22px;
+      overflow: hidden;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+    }
+    th {
+      background: #f3f4f6;
+      text-align: left;
+      font-weight: 800;
+    }
+    tr:nth-child(even) td { background: #fcfcfd; }
+    ul, ol { padding-left: 1.35em; }
+    .note {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 16px;
+      padding: 14px 16px;
+      color: #78350f;
+    }
+    .okbox {
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      border-radius: 16px;
+      padding: 14px 16px;
+      color: #064e3b;
+    }
+    .dangerbox {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 16px;
+      padding: 14px 16px;
+      color: #7f1d1d;
+    }
+    .diagram {
+      margin: 18px 0;
+      padding: 20px;
+      border: 1px dashed #a5b4fc;
+      border-radius: 18px;
+      background: #f8fafc;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      color: #111827;
+    }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    code {
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 1px 5px;
+    }
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      margin-top: 26px;
+      font-size: 13px;
+    }
+    .print-tip {
+      margin-top: 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    @media print {
+      body { background: #fff; }
+      .page { max-width: none; padding: 0; }
+      header.hero, nav.toc, section { box-shadow: none; break-inside: avoid; }
+      a { color: #000; text-decoration: none; }
+    }
+    @media (max-width: 760px) {
+      header.hero { padding: 26px; }
+      .meta, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .toc ol { columns: 1; }
+      table { font-size: 13px; display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div class="eyebrow">Requirements Definition / v0.2</div>
+      <h1>謎解き企画用アプリ<br />要件定義書</h1>
+      <p class="subtitle">
+        参加者用アプリと出題者用アプリから構成される、ルーム参加型の謎解き企画支援Webアプリの要件定義書。問題画像の提示、解答入力、サーバー側判定、得点管理、出題者による進行管理を対象とする。
+      </p>
+      <div class="meta">
+        <div><span>作成日</span><strong>2026-06-16</strong></div>
+        <div><span>対象フェーズ</span><strong>企画・要件定義</strong></div>
+        <div><span>想定形式</span><strong>Webアプリ</strong></div>
+        <div><span>想定規模</span><strong>MVP〜小規模イベント</strong></div>
+      </div>
+      <p class="print-tip">ブラウザの印刷機能からPDF化して共有することも可能。</p>
+    </header>
+
+    <nav class="toc">
+      <h2>目次</h2>
+      <ol>
+        <li><a href="#scope">文書の目的とスコープ</a></li>
+        <li><a href="#summary">アプリ概要</a></li>
+        <li><a href="#users">想定ユーザーと権限</a></li>
+        <li><a href="#flow">利用フロー</a></li>
+        <li><a href="#participant-ui">参加者側アプリの画面要件</a></li>
+        <li><a href="#host-ui">出題者側アプリの画面要件</a></li>
+        <li><a href="#functional">機能要件</a></li>
+        <li><a href="#backend">バックエンド・システム要件</a></li>
+        <li><a href="#data">主要データ概念</a></li>
+        <li><a href="#tech">技術スタック方針</a></li>
+        <li><a href="#nonfunctional">非機能要件</a></li>
+        <li><a href="#security">セキュリティ要件</a></li>
+        <li><a href="#mvp">MVP範囲</a></li>
+        <li><a href="#boundary">要件定義と詳細設計の分離</a></li>
+        <li><a href="#open-issues">未決定事項</a></li>
+      </ol>
+    </nav>
+
+    <section id="scope">
+      <h2>1. 文書の目的とスコープ</h2>
+      <p>
+        本文書は、謎解き企画用アプリの開発に向けて、企画・設計・実装の前提となる要件を整理するためのものである。
+        参加者側アプリ、出題者側アプリ、バックエンド、データ管理、セキュリティ、運用面を含め、初期開発で実装すべき範囲と、詳細設計で詰めるべき範囲を明確にする。
+      </p>
+      <div class="lead">
+        <strong>方針：</strong>要件定義では「何を実現するか」「なぜ必要か」「守るべき制約」を定める。API仕様、DBカラムの厳密な型、画面コンポーネントの詳細、実装コード構造は詳細設計で扱う。
+      </div>
+    </section>
+
+    <section id="summary">
+      <h2>2. アプリ概要</h2>
+      <p>
+        本アプリは、出題者が用意した問題画像を参加者に提示し、参加者がキーボードで解答を入力することで得点を獲得できる謎解き企画支援システムである。
+        参加者はWeb上でルーム番号を入力して参加し、出題者は問題登録、進行管理、解答状況確認、得点管理を行う。
+      </p>
+      <div class="grid-2">
+        <div class="card">
+          <h3>参加者側アプリ</h3>
+          <p>ルーム参加、問題画像閲覧、解答入力、正誤結果確認、得点確認を行う。</p>
+          <span class="tag must">MVP必須</span><span class="tag">スマホ対応</span><span class="tag">PC対応</span>
+        </div>
+        <div class="card">
+          <h3>出題者側アプリ</h3>
+          <p>ルーム作成、問題登録、画像アップロード、正答設定、問題提示、参加者・得点管理を行う。</p>
+          <span class="tag must">MVP必須</span><span class="tag security">認証必須</span><span class="tag">管理画面</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="users">
+      <h2>3. 想定ユーザーと権限</h2>
+      <table>
+        <thead>
+          <tr><th>ユーザー種別</th><th>主な目的</th><th>主な権限</th><th>認証方針</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>参加者</td>
+            <td>企画に参加し、問題に解答する</td>
+            <td>ルーム参加、問題閲覧、解答送信、自分の得点閲覧</td>
+            <td>ルーム番号＋参加者名またはチーム名。MVPではログイン不要でも可。</td>
+          </tr>
+          <tr>
+            <td>出題者</td>
+            <td>問題を準備し、企画を進行する</td>
+            <td>ルーム作成、問題登録、問題切替、解答状況確認、得点操作</td>
+            <td>ログインまたは管理用パスコードを必須とする。</td>
+          </tr>
+          <tr>
+            <td>管理者</td>
+            <td>複数企画やシステム全体を管理する</td>
+            <td>全ルーム管理、ユーザー管理、データ削除、監査</td>
+            <td>初期MVPでは出題者と兼ねてもよい。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="flow">
+      <h2>4. 利用フロー</h2>
+      <h3>4.1 参加者側の流れ</h3>
+      <ol>
+        <li>参加者がWebアプリにアクセスする。</li>
+        <li>ルーム番号を入力する。</li>
+        <li>参加者名またはチーム名を入力する。</li>
+        <li>ルームに参加する。</li>
+        <li>出題者が問題を開始するまで待機する。</li>
+        <li>問題画像を確認する。</li>
+        <li>解答欄にキーボードで解答を入力する。</li>
+        <li>送信ボタンまたはEnterキーで解答を送信する。</li>
+        <li>サーバー側で正誤判定を行い、結果を受け取る。</li>
+        <li>正解の場合、得点が加算される。</li>
+        <li>次の問題または終了画面へ進む。</li>
+      </ol>
+      <h3>4.2 出題者側の流れ</h3>
+      <ol>
+        <li>出題者が管理画面にアクセスする。</li>
+        <li>ログインまたは管理用パスコードで認証する。</li>
+        <li>ルームを作成する。</li>
+        <li>問題画像、正答、配点、制限時間などを登録する。</li>
+        <li>参加者の参加状況を確認する。</li>
+        <li>問題を開始し、参加者画面へ提示する。</li>
+        <li>解答状況、正解者、得点を確認する。</li>
+        <li>必要に応じてヒント表示、締切、次問提示を行う。</li>
+        <li>企画終了後、最終結果を表示・出力する。</li>
+      </ol>
+    </section>
+
+    <section id="participant-ui">
+      <h2>5. 参加者側アプリの画面要件</h2>
+      <table>
+        <thead>
+          <tr><th>画面</th><th>目的</th><th>主な構成要素</th><th>優先度</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>ルーム参加画面</td>
+            <td>参加者が企画ルームへ入る</td>
+            <td>タイトル、ルーム番号入力、参加者名入力、参加ボタン、エラー表示</td>
+            <td>必須</td>
+          </tr>
+          <tr>
+            <td>待機画面</td>
+            <td>企画開始または次問開始まで待機する</td>
+            <td>ルーム番号、参加者名、待機メッセージ、接続状態、参加人数</td>
+            <td>必須</td>
+          </tr>
+          <tr>
+            <td>問題解答画面</td>
+            <td>問題画像を見て解答する</td>
+            <td>問題番号、問題タイトル、問題画像、解答欄、送信ボタン、得点、残り時間</td>
+            <td>必須</td>
+          </tr>
+          <tr>
+            <td>解答結果表示</td>
+            <td>送信後の正誤・得点を確認する</td>
+            <td>正解/不正解、獲得点、再解答可否、締切表示</td>
+            <td>必須</td>
+          </tr>
+          <tr>
+            <td>得点確認画面</td>
+            <td>自分の得点・順位を確認する</td>
+            <td>合計点、順位、正解数、ランキング</td>
+            <td>準必須</td>
+          </tr>
+          <tr>
+            <td>終了画面</td>
+            <td>企画終了後の結果を確認する</td>
+            <td>終了メッセージ、最終得点、最終順位、ランキング</td>
+            <td>準必須</td>
+          </tr>
+        </tbody>
+      </table>
+      <h3>5.1 解答入力仕様</h3>
+      <ul>
+        <li>解答はキーボードで入力できる。</li>
+        <li>Enterキーで送信できる。</li>
+        <li>空文字は送信できない。</li>
+        <li>前後の空白は除去する。</li>
+        <li>大文字・小文字を区別するかは問題ごと、またはルームごとの設定とする。</li>
+        <li>ひらがな・カタカナ、全角・半角などの表記ゆれ対応は拡張機能として検討する。</li>
+        <li>複数回解答の可否は問題ごとに設定できることが望ましい。</li>
+      </ul>
+    </section>
+
+    <section id="host-ui">
+      <h2>6. 出題者側アプリの画面要件</h2>
+      <table>
+        <thead>
+          <tr><th>画面</th><th>目的</th><th>主な構成要素</th><th>優先度</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>出題者ログイン画面</td>
+            <td>出題者のみ管理画面へ入れるようにする</td>
+            <td>ログインフォーム、管理用パスコード入力、エラー表示</td>
+            <td>必須</td>
+          </tr>
+          <tr>
+            <td>ルーム管理画面</td>
+            <td>企画ルームを作成・選択・削除する</td>
+            <td>ルーム一覧、新規作成ボタン、ルーム番号、開催状態、参加人数</td>
+            <td>必須</td>
+          </tr>
+          <tr>
+            <td>問題管理画面</td>
+            <td>問題を登録・編集する</td>
+            <td>問題一覧、画像アップロード、正答、別解、配点、制限時間、公開状態</td>
+            <td>必須</td>
+          </tr>
+          <tr>
+            <td>ルーム進行画面</td>
+            <td>企画中に問題提示や締切を操作する</td>
+            <td>現在の問題、開始ボタン、締切ボタン、次問ボタン、ヒント表示、終了ボタン</td>
+            <td>必須</td>
+          </tr>
+          <tr>
+            <td>参加者管理画面</td>
+            <td>参加者の参加状況を確認する</td>
+            <td>参加者一覧、接続状態、得点、正解数、強制退出、名前修正</td>
+            <td>準必須</td>
+          </tr>
+          <tr>
+            <td>解答状況画面</td>
+            <td>参加者の解答をリアルタイムに確認する</td>
+            <td>解答ログ、正誤、送信時刻、参加者名、問題別フィルタ</td>
+            <td>準必須</td>
+          </tr>
+          <tr>
+            <td>ランキング画面</td>
+            <td>得点順位を確認・表示する</td>
+            <td>順位表、合計点、正解数、最終結果表示、公開用表示モード</td>
+            <td>準必須</td>
+          </tr>
+          <tr>
+            <td>結果出力画面</td>
+            <td>終了後に結果を保存・共有する</td>
+            <td>CSV出力、解答ログ出力、ランキング出力</td>
+            <td>後回し</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>6.1 出題者側の重要操作</h3>
+      <div class="grid-3">
+        <div class="card">
+          <h4>問題登録</h4>
+          <ul>
+            <li>画像アップロード</li>
+            <li>正答・別解登録</li>
+            <li>配点設定</li>
+            <li>制限時間設定</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h4>進行管理</h4>
+          <ul>
+            <li>問題開始</li>
+            <li>解答受付停止</li>
+            <li>次問へ移動</li>
+            <li>企画終了</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h4>監視・修正</h4>
+          <ul>
+            <li>参加者状態確認</li>
+            <li>解答ログ確認</li>
+            <li>得点調整</li>
+            <li>不具合時の手動対応</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>6.2 出題者画面で必要な警告・確認</h3>
+      <ul>
+        <li>問題を開始すると参加者側に表示されるため、開始前に確認ダイアログを出す。</li>
+        <li>解答受付を締め切ると参加者は送信できなくなるため、締切前に確認する。</li>
+        <li>正答や配点を企画中に変更する場合、既存の得点への影響を明示する。</li>
+        <li>ルーム削除や問題削除は取り消し困難な操作として扱う。</li>
+      </ul>
+    </section>
+
+    <section id="functional">
+      <h2>7. 機能要件</h2>
+      <h3>7.1 参加者側機能</h3>
+      <table>
+        <thead><tr><th>ID</th><th>機能</th><th>内容</th><th>優先度</th></tr></thead>
+        <tbody>
+          <tr><td>P-01</td><td>ルーム参加</td><td>ルーム番号を入力して対象ルームへ参加できる。</td><td>必須</td></tr>
+          <tr><td>P-02</td><td>参加者登録</td><td>参加者名またはチーム名を登録できる。</td><td>必須</td></tr>
+          <tr><td>P-03</td><td>問題表示</td><td>出題者が選択した問題画像を表示できる。</td><td>必須</td></tr>
+          <tr><td>P-04</td><td>解答送信</td><td>入力した解答をサーバーへ送信できる。</td><td>必須</td></tr>
+          <tr><td>P-05</td><td>結果表示</td><td>正解・不正解・受付終了などの結果を表示できる。</td><td>必須</td></tr>
+          <tr><td>P-06</td><td>得点表示</td><td>自分の現在得点を確認できる。</td><td>必須</td></tr>
+          <tr><td>P-07</td><td>ランキング確認</td><td>必要に応じて順位表を確認できる。</td><td>準必須</td></tr>
+          <tr><td>P-08</td><td>再接続</td><td>ページ更新や一時切断後も同じ参加者として復帰できる。</td><td>準必須</td></tr>
+        </tbody>
+      </table>
+
+      <h3>7.2 出題者側機能</h3>
+      <table>
+        <thead><tr><th>ID</th><th>機能</th><th>内容</th><th>優先度</th></tr></thead>
+        <tbody>
+          <tr><td>H-01</td><td>出題者認証</td><td>出題者のみ管理画面へアクセスできる。</td><td>必須</td></tr>
+          <tr><td>H-02</td><td>ルーム作成</td><td>新しい企画ルームを作成し、ルーム番号を発行できる。</td><td>必須</td></tr>
+          <tr><td>H-03</td><td>問題登録</td><td>問題画像、正答、別解、配点、制限時間を登録できる。</td><td>必須</td></tr>
+          <tr><td>H-04</td><td>問題編集</td><td>登録済みの問題を編集・削除できる。</td><td>必須</td></tr>
+          <tr><td>H-05</td><td>問題提示</td><td>現在出題する問題を参加者側に表示できる。</td><td>必須</td></tr>
+          <tr><td>H-06</td><td>解答受付制御</td><td>解答受付開始、締切、再開を制御できる。</td><td>必須</td></tr>
+          <tr><td>H-07</td><td>参加者管理</td><td>参加者一覧、接続状態、得点を確認できる。</td><td>準必須</td></tr>
+          <tr><td>H-08</td><td>解答ログ確認</td><td>各参加者の解答履歴を確認できる。</td><td>準必須</td></tr>
+          <tr><td>H-09</td><td>得点修正</td><td>運営判断で得点を手動修正できる。</td><td>後回し</td></tr>
+          <tr><td>H-10</td><td>結果出力</td><td>結果やログをCSV等で出力できる。</td><td>後回し</td></tr>
+        </tbody>
+      </table>
+
+      <h3>7.3 共通機能</h3>
+      <ul>
+        <li>入力値のバリデーションを行う。</li>
+        <li>通信エラー時にユーザーへ状況を表示する。</li>
+        <li>企画状態の変化を参加者画面に反映する。</li>
+        <li>重要操作や解答送信はサーバー側で処理する。</li>
+        <li>問題の正答データは参加者側に送信しない。</li>
+      </ul>
+    </section>
+
+    <section id="backend">
+      <h2>8. バックエンド・システム要件</h2>
+      <p>
+        本アプリでは、正答判定、得点加算、ルーム状態管理、画像管理をサーバー側で行う必要がある。特に謎解き企画では、正答データの秘匿が重要であるため、フロントエンドのみで完結する実装は避ける。
+      </p>
+      <div class="diagram">参加者ブラウザ ─┐
+                 ├─ Webフロントエンド / サーバー処理 ─ データベース
+出題者ブラウザ ─┘                 │
+                                  ├─ 画像ストレージ
+                                  └─ リアルタイム通知基盤</div>
+
+      <h3>8.1 サーバー側で扱うべき処理</h3>
+      <table>
+        <thead><tr><th>処理</th><th>理由</th><th>備考</th></tr></thead>
+        <tbody>
+          <tr><td>解答判定</td><td>正答を参加者側に漏らさないため</td><td>正答・別解・表記ゆれ処理をサーバー側に置く。</td></tr>
+          <tr><td>得点加算</td><td>参加者による改ざんを防ぐため</td><td>二重加点防止が必要。</td></tr>
+          <tr><td>問題状態管理</td><td>開始・締切・終了状態を一元管理するため</td><td>参加者側は現在状態を購読・取得する。</td></tr>
+          <tr><td>画像アップロード</td><td>問題画像を安全に保管・配信するため</td><td>出題者のみアップロード可能。</td></tr>
+          <tr><td>出題者認証</td><td>管理画面の不正操作を防ぐため</td><td>MVPでも最低限必要。</td></tr>
+          <tr><td>ログ保存</td><td>トラブル対応や結果確認のため</td><td>送信時刻・解答内容・判定結果を保存する。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>8.2 リアルタイム性</h3>
+      <p>
+        出題者が問題を開始・締切・次問へ移動した際、参加者画面に速やかに反映されることが望ましい。MVPでは数秒以内の反映を目標とし、必要に応じてリアルタイム購読または短間隔ポーリングを採用する。
+      </p>
+      <ul>
+        <li>問題開始時：参加者画面が待機画面から問題画面へ遷移する。</li>
+        <li>問題締切時：解答欄を無効化し、受付終了を表示する。</li>
+        <li>ランキング更新時：必要に応じて参加者・出題者画面に反映する。</li>
+      </ul>
+
+      <h3>8.3 想定APIカテゴリ</h3>
+      <p>要件定義段階ではエンドポイント名やリクエスト形式までは確定しないが、以下の処理カテゴリを想定する。</p>
+      <table>
+        <thead><tr><th>カテゴリ</th><th>主な処理</th></tr></thead>
+        <tbody>
+          <tr><td>Room</td><td>ルーム作成、ルーム取得、状態更新、参加受付制御</td></tr>
+          <tr><td>Participant</td><td>参加者登録、再接続、参加者一覧取得</td></tr>
+          <tr><td>Question</td><td>問題作成、編集、画像登録、出題順管理</td></tr>
+          <tr><td>Submission</td><td>解答送信、正誤判定、解答ログ取得</td></tr>
+          <tr><td>Score</td><td>得点取得、ランキング取得、手動補正</td></tr>
+          <tr><td>Auth</td><td>出題者ログイン、権限確認</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="data">
+      <h2>9. 主要データ概念</h2>
+      <p>
+        詳細なテーブル定義は詳細設計で行うが、要件定義段階では以下のデータ概念を前提とする。
+      </p>
+      <table>
+        <thead><tr><th>データ概念</th><th>説明</th><th>主な項目例</th></tr></thead>
+        <tbody>
+          <tr><td>Room</td><td>謎解き企画の単位</td><td>ルームID、ルーム番号、名称、状態、作成者、作成日時</td></tr>
+          <tr><td>Participant</td><td>参加者またはチーム</td><td>参加者ID、ルームID、表示名、接続状態、参加日時</td></tr>
+          <tr><td>Question</td><td>問題情報</td><td>問題ID、ルームID、タイトル、画像URL、配点、制限時間、順番</td></tr>
+          <tr><td>Answer</td><td>正答・別解</td><td>問題ID、正答文字列、別解、正規化ルール</td></tr>
+          <tr><td>Submission</td><td>解答履歴</td><td>参加者ID、問題ID、送信内容、判定結果、送信時刻</td></tr>
+          <tr><td>Score</td><td>得点状態</td><td>参加者ID、合計点、問題別得点、更新日時</td></tr>
+          <tr><td>RoomState</td><td>現在の進行状態</td><td>現在の問題ID、受付状態、開始時刻、締切時刻</td></tr>
+          <tr><td>AuditLog</td><td>運営操作ログ</td><td>操作内容、操作者、対象、実行日時</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="tech">
+      <h2>10. 技術スタック方針</h2>
+      <div class="note">
+        <strong>結論：</strong>要件定義書には、技術スタックの「候補・方針・制約」は盛り込むべき。ただし、ライブラリの細かな構成、API設計、DB物理設計、ディレクトリ構成は詳細設計で分離するのがよい。
+      </div>
+
+      <h3>10.1 推奨構成</h3>
+      <table>
+        <thead><tr><th>領域</th><th>推奨技術</th><th>理由</th><th>代替候補</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>フロントエンド</td>
+            <td>Next.js + React + TypeScript</td>
+            <td>参加者画面と出題者画面を同一プロジェクトで作りやすく、サーバー側処理も統合しやすい。</td>
+            <td>React + Vite</td>
+          </tr>
+          <tr>
+            <td>UI</td>
+            <td>Tailwind CSS または CSS Modules</td>
+            <td>短期間でレスポンシブUIを作りやすい。</td>
+            <td>Material UI, shadcn/ui</td>
+          </tr>
+          <tr>
+            <td>バックエンド</td>
+            <td>Next.js Server Functions / Route Handlers</td>
+            <td>解答判定や得点加算をサーバー側に置ける。MVPでは構成がシンプル。</td>
+            <td>Node.js + Express, Hono, NestJS</td>
+          </tr>
+          <tr>
+            <td>データベース</td>
+            <td>Supabase PostgreSQL</td>
+            <td>ルーム、問題、解答、得点のような関係データを扱いやすい。</td>
+            <td>Firebase Firestore</td>
+          </tr>
+          <tr>
+            <td>画像ストレージ</td>
+            <td>Supabase Storage</td>
+            <td>問題画像のアップロード・保管・アクセス制御をまとめやすい。</td>
+            <td>Firebase Cloud Storage, S3</td>
+          </tr>
+          <tr>
+            <td>リアルタイム通知</td>
+            <td>Supabase Realtime またはポーリング</td>
+            <td>問題開始や締切などの状態変化を参加者画面へ反映できる。</td>
+            <td>WebSocket, Firebase Realtime/Firestore listener</td>
+          </tr>
+          <tr>
+            <td>認証</td>
+            <td>Supabase Auth または簡易管理パスコード</td>
+            <td>出題者画面の保護が必要。MVPでは簡易方式、正式版では認証基盤を推奨。</td>
+            <td>NextAuth/Auth.js, Firebase Authentication</td>
+          </tr>
+          <tr>
+            <td>ホスティング</td>
+            <td>Vercel</td>
+            <td>Next.jsとの相性がよく、MVP公開が容易。</td>
+            <td>Cloudflare Pages, Firebase App Hosting</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>10.2 MVPにおける現実的な構成案</h3>
+      <div class="diagram">Next.js アプリ
+├─ /participant : 参加者画面
+├─ /host        : 出題者画面
+├─ Server Functions / API Routes
+│  ├─ ルーム作成
+│  ├─ 解答判定
+│  ├─ 得点加算
+│  └─ 進行状態更新
+└─ Supabase
+   ├─ PostgreSQL : ルーム・問題・参加者・解答・得点
+   ├─ Storage    : 問題画像
+   ├─ Auth       : 出題者認証
+   └─ Realtime   : 問題状態・ランキング更新</div>
+
+      <h3>10.3 Firebase構成を選ぶ場合</h3>
+      <p>
+        Firebaseでも、Firestore、Cloud Storage、Authentication、Cloud Functionsを組み合わせれば実現可能である。リアルタイム更新を扱いやすい一方、得点や問題・解答の関係を複雑に集計する場合は、データ構造を慎重に設計する必要がある。
+      </p>
+
+      <h3>10.4 技術選定の判断</h3>
+      <table>
+        <thead><tr><th>重視すること</th><th>向いている構成</th></tr></thead>
+        <tbody>
+          <tr><td>SQLで問題・参加者・得点を整理したい</td><td>Next.js + Supabase</td></tr>
+          <tr><td>リアルタイム更新を最速で試したい</td><td>Firebase または Supabase Realtime</td></tr>
+          <tr><td>自分でバックエンドを細かく作りたい</td><td>Next.js + Node.js API + PostgreSQL</td></tr>
+          <tr><td>短期間でMVPを公開したい</td><td>Next.js + Supabase + Vercel</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="nonfunctional">
+      <h2>11. 非機能要件</h2>
+      <table>
+        <thead><tr><th>分類</th><th>要件</th><th>目安</th></tr></thead>
+        <tbody>
+          <tr><td>対応端末</td><td>PC、スマートフォン、タブレットで利用できる。</td><td>レスポンシブ対応</td></tr>
+          <tr><td>対応ブラウザ</td><td>Chrome、Safari、Edgeで利用できる。</td><td>最新版を主対象</td></tr>
+          <tr><td>操作性</td><td>参加者が迷わず解答できる。</td><td>主要操作は1〜2クリック以内</td></tr>
+          <tr><td>表示性能</td><td>問題画像が大きく遅延せず表示される。</td><td>画像圧縮・適切なサイズ管理</td></tr>
+          <tr><td>応答性能</td><td>解答送信後、結果が速やかに返る。</td><td>通常時1〜2秒以内を目標</td></tr>
+          <tr><td>同時接続</td><td>小規模イベントの参加者に対応できる。</td><td>MVPでは20〜100人程度を想定</td></tr>
+          <tr><td>可用性</td><td>一時的な通信断から復帰できる。</td><td>再接続・再読み込み対応</td></tr>
+          <tr><td>保守性</td><td>問題追加やルール変更に対応しやすい。</td><td>問題データと判定ロジックを分離</td></tr>
+          <tr><td>運用性</td><td>当日のトラブルに運営が対応できる。</td><td>手動得点修正・ログ確認</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="security">
+      <h2>12. セキュリティ要件</h2>
+      <div class="dangerbox">
+        <strong>最重要：</strong>正答データを参加者側のHTML、JavaScript、APIレスポンスに含めない。解答判定は必ずサーバー側で行う。
+      </div>
+      <h3>12.1 必須対策</h3>
+      <ul>
+        <li>出題者画面には認証を設ける。</li>
+        <li>正答、別解、配点操作は出題者権限のみ可能にする。</li>
+        <li>参加者側に正答データを送信しない。</li>
+        <li>解答判定と得点加算はサーバー側で実行する。</li>
+        <li>同一問題での二重加点を防止する。</li>
+        <li>ルーム番号は推測されにくい桁数・形式にする。</li>
+        <li>画像アップロードはファイル種別・サイズを制限する。</li>
+        <li>出題者の重要操作はログに残す。</li>
+      </ul>
+
+      <h3>12.2 追加で検討する対策</h3>
+      <ul>
+        <li>参加者ごとにセッションIDを発行する。</li>
+        <li>短時間に大量送信する参加者を制限する。</li>
+        <li>ルーム参加に合言葉を追加する。</li>
+        <li>企画終了後、問題画像や解答データを一定期間で削除する。</li>
+        <li>公開ランキングに表示する名前の扱いを事前に明示する。</li>
+      </ul>
+    </section>
+
+    <section id="mvp">
+      <h2>13. MVP範囲</h2>
+      <h3>13.1 初期開発で必ず作るもの</h3>
+      <div class="okbox">
+        <ul>
+          <li>参加者のルーム参加</li>
+          <li>参加者名またはチーム名登録</li>
+          <li>出題者ログイン</li>
+          <li>ルーム作成</li>
+          <li>問題画像アップロード</li>
+          <li>正答・配点登録</li>
+          <li>出題者による問題開始・締切・次問操作</li>
+          <li>参加者側への問題画像表示</li>
+          <li>解答送信</li>
+          <li>サーバー側正誤判定</li>
+          <li>得点加算</li>
+          <li>現在得点表示</li>
+        </ul>
+      </div>
+
+      <h3>13.2 後回しにしてよいもの</h3>
+      <ul>
+        <li>CSV出力</li>
+        <li>複雑なランキング演出</li>
+        <li>ヒントの段階表示</li>
+        <li>表記ゆれの高度な吸収</li>
+        <li>複数ルームの高度な管理</li>
+        <li>参加者の強制退出</li>
+        <li>詳細な監査ログ画面</li>
+        <li>公開用大型スクリーン表示</li>
+      </ul>
+
+      <h3>13.3 MVP成功条件</h3>
+      <ul>
+        <li>出題者が問題を登録し、参加者に提示できる。</li>
+        <li>参加者がルームに入り、問題画像を見て解答できる。</li>
+        <li>正答判定がサーバー側で行われる。</li>
+        <li>正解時に得点が加算される。</li>
+        <li>企画中に出題者が進行を止めずに操作できる。</li>
+      </ul>
+    </section>
+
+    <section id="boundary">
+      <h2>14. 要件定義と詳細設計の分離</h2>
+      <p>
+        技術やシステム構成は要件定義にも含めるべきだが、粒度を分ける必要がある。本アプリでは、以下のように分離する。
+      </p>
+      <table>
+        <thead><tr><th>要件定義に含める</th><th>詳細設計に回す</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>参加者・出題者が何をできるか</td>
+            <td>画面コンポーネントの具体的な分割</td>
+          </tr>
+          <tr>
+            <td>正答判定をサーバー側で行う方針</td>
+            <td>判定関数の実装、正規化処理の詳細</td>
+          </tr>
+          <tr>
+            <td>ルーム、問題、参加者、解答、得点が必要という概念</td>
+            <td>DBテーブル名、カラム名、型、インデックス、制約</td>
+          </tr>
+          <tr>
+            <td>リアルタイム更新が必要という要件</td>
+            <td>WebSocket、Realtime購読、ポーリング間隔の具体設計</td>
+          </tr>
+          <tr>
+            <td>出題者認証が必要という要件</td>
+            <td>認証プロバイダ、セッション管理、権限ロール設計</td>
+          </tr>
+          <tr>
+            <td>推奨技術スタックと採用理由</td>
+            <td>環境変数、デプロイ設定、CI/CD、ディレクトリ構成</td>
+          </tr>
+          <tr>
+            <td>セキュリティ上守るべき制約</td>
+            <td>RLSポリシー、APIごとの認可条件、レート制限値</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="lead">
+        <strong>次の成果物：</strong>この要件定義の次は、画面遷移図、ワイヤーフレーム、ER図、API設計、状態遷移図、DB設計、実装タスク分解を作るとよい。
+      </div>
+    </section>
+
+    <section id="open-issues">
+      <h2>15. 未決定事項</h2>
+      <table>
+        <thead><tr><th>項目</th><th>選択肢</th><th>初期案</th></tr></thead>
+        <tbody>
+          <tr><td>参加形式</td><td>個人戦 / チーム戦</td><td>チーム戦にも対応できるよう、表示名は参加者名またはチーム名とする。</td></tr>
+          <tr><td>進行形式</td><td>全員同時 / 各自自由進行</td><td>出題者が一問ずつ進行する全員同時形式。</td></tr>
+          <tr><td>解答回数</td><td>1回のみ / 複数回可</td><td>MVPでは複数回可、正解後は加点しない。</td></tr>
+          <tr><td>正誤判定</td><td>完全一致 / 表記ゆれ許容</td><td>MVPでは前後空白除去＋大文字小文字設定。高度な表記ゆれは後回し。</td></tr>
+          <tr><td>ランキング表示</td><td>常時表示 / 問題終了時のみ / 最後のみ</td><td>出題者画面は常時、参加者画面は最後のみでも可。</td></tr>
+          <tr><td>制限時間</td><td>あり / なし</td><td>問題ごとに任意設定。</td></tr>
+          <tr><td>ヒント</td><td>なし / 手動表示 / 時間経過表示</td><td>MVPではなし、または手動表示。</td></tr>
+          <tr><td>参加上限</td><td>固定 / 設定可能</td><td>MVPでは明示的な上限なし。ただし想定規模は20〜100人。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="next">
+      <h2>16. 次に作成する設計資料</h2>
+      <ol>
+        <li>画面遷移図</li>
+        <li>参加者側・出題者側ワイヤーフレーム</li>
+        <li>ER図</li>
+        <li>API設計書</li>
+        <li>ルーム状態・問題状態の状態遷移図</li>
+        <li>実装タスク一覧</li>
+        <li>MVP開発スケジュール</li>
+      </ol>
+    </section>
+
+    <p class="footer">謎解き企画用アプリ 要件定義書 v0.2 / Generated for project planning</p>
+  </main>
+</body>
+</html>

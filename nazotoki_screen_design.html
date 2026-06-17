@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>画面設計書</title>
+<style>
+:root{
+  --bg:#f6f7fb; --paper:#ffffff; --ink:#18202f; --muted:#687186; --line:#dfe4ee;
+  --primary:#355cde; --primary-soft:#eaf0ff; --accent:#16a085; --warn:#d97706; --danger:#dc2626;
+  --shadow:0 10px 30px rgba(24,32,47,.08); --radius:18px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;line-height:1.75}
+a{color:var(--primary);text-decoration:none} a:hover{text-decoration:underline}
+.layout{display:grid;grid-template-columns:280px 1fr;min-height:100vh}
+aside{position:sticky;top:0;height:100vh;overflow:auto;padding:28px 20px;background:#111827;color:#f9fafb}
+aside .brand{font-weight:800;font-size:18px;line-height:1.4;margin-bottom:18px}
+aside .meta{font-size:12px;color:#b6c0d4;margin-bottom:22px}
+aside a{display:block;color:#dbeafe;padding:8px 10px;border-radius:10px;font-size:14px;text-decoration:none}
+aside a:hover{background:rgba(255,255,255,.08)}
+main{padding:42px;max-width:1180px;width:100%}
+.hero{background:linear-gradient(135deg,#ffffff,#eef3ff);border:1px solid var(--line);border-radius:24px;padding:34px;box-shadow:var(--shadow);margin-bottom:28px}
+h1{font-size:32px;line-height:1.25;margin:0 0 8px} h2{font-size:24px;margin:42px 0 14px;border-left:6px solid var(--primary);padding-left:12px} h3{font-size:18px;margin:26px 0 10px} h4{font-size:15px;margin:18px 0 8px;color:#374151}.lead{font-size:16px;color:#48546a;margin:0}.pill{display:inline-block;border-radius:999px;padding:4px 10px;background:var(--primary-soft);color:var(--primary);font-weight:700;font-size:12px;margin-right:6px}.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin:16px 0;box-shadow:0 4px 18px rgba(24,32,47,.04)}.grid{display:grid;gap:16px}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.grid.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:12px 0 22px}th,td{border-bottom:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top;font-size:14px}th{background:#f1f5ff;color:#273452;font-weight:800}tr:last-child td{border-bottom:none}code,pre{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}code{background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:1px 5px}pre{white-space:pre-wrap;background:#0b1020;color:#e5e7eb;border-radius:14px;padding:16px;overflow:auto;font-size:13px}.note{background:#fff7ed;border:1px solid #fed7aa;border-left:6px solid var(--warn);border-radius:14px;padding:14px 16px;margin:14px 0}.ok{background:#ecfdf5;border:1px solid #bbf7d0;border-left:6px solid var(--accent);border-radius:14px;padding:14px 16px;margin:14px 0}.danger{background:#fef2f2;border:1px solid #fecaca;border-left:6px solid var(--danger);border-radius:14px;padding:14px 16px;margin:14px 0}.muted{color:var(--muted)}.small{font-size:13px}.kbd{font-family:monospace;border:1px solid #c7ceda;border-bottom-width:2px;border-radius:6px;padding:1px 6px;background:#fff}.tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:#eef2ff;color:#3730a3}.tag.must{background:#fee2e2;color:#991b1b}.tag.should{background:#fef3c7;color:#92400e}.tag.could{background:#dcfce7;color:#166534}.diagram{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;overflow:auto;margin:14px 0}.flow{display:flex;align-items:center;gap:10px;min-width:max-content}.node{border:1px solid #c7d2fe;background:#eef2ff;border-radius:14px;padding:10px 13px;min-width:125px;text-align:center;font-weight:700}.node.host{background:#ecfdf5;border-color:#86efac}.node.err{background:#fef2f2;border-color:#fca5a5}.arrow{font-size:24px;color:#64748b}.wire{border:2px solid #111827;border-radius:20px;background:#fbfdff;padding:14px;min-height:380px}.wire .top{height:34px;background:#e5e7eb;border-radius:10px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;font-size:12px;color:#475569}.wire .image{height:140px;border:2px dashed #94a3b8;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#64748b;background:#f8fafc}.wire .input{height:42px;border:1px solid #94a3b8;border-radius:10px;margin-top:12px;background:#fff;display:flex;align-items:center;padding-left:12px;color:#94a3b8}.wire .btn{height:42px;border-radius:10px;background:#355cde;color:white;margin-top:10px;display:flex;align-items:center;justify-content:center;font-weight:800}.wire .box{border:1px solid #d7dce7;border-radius:10px;background:#fff;padding:10px;margin:10px 0;font-size:13px}.wire .split{display:grid;grid-template-columns:1fr 1fr;gap:10px}.er{display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:14px;align-items:start}.entity{border:1px solid #c7d2fe;border-radius:14px;background:#fff;overflow:hidden}.entity h4{margin:0;padding:10px 12px;background:#eef2ff;color:#1e3a8a}.entity ul{margin:0;padding:10px 12px 12px 28px}.entity li{font-size:13px;margin:2px 0}.footer{color:#6b7280;font-size:12px;margin-top:48px;border-top:1px solid var(--line);padding-top:20px}
+@media (max-width: 900px){.layout{grid-template-columns:1fr}aside{position:relative;height:auto}.grid.two,.grid.three,.grid.four{grid-template-columns:1fr}.er{grid-template-columns:1fr}main{padding:22px}.hero{padding:24px}.flow{display:block}.arrow{transform:rotate(90deg);display:block;text-align:center}}
+@media print{aside{display:none}.layout{display:block}main{padding:0}.card,.hero{box-shadow:none}body{background:#fff}}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <div class="brand">謎解き企画用アプリ<br>設計資料</div>
+    <div class="meta">Version 0.1<br>作成日: 2026-06-16</div>
+    <div class="small muted" style="color:#93a3bd;margin:10px 0 6px;">資料リンク</div>
+    <a href="nazotoki_app_requirements.html">全体要件定義書</a><a href="nazotoki_screen_design.html">画面設計書</a><a href="nazotoki_system_design.html">システム設計書</a><a href="nazotoki_api_db_design.html">API・DB設計書</a>
+    <div class="small muted" style="color:#93a3bd;margin:18px 0 6px;">この資料の目次</div>
+    <a href="#position">1. 位置づけ</a><a href="#users">2. 利用者と画面グループ</a><a href="#flow">3. 画面遷移図</a><a href="#participant-screens">4. 参加者側画面</a><a href="#host-screens">5. 出題者側画面</a><a href="#wireframes">6. ワイヤーフレーム</a><a href="#ui-rules">7. UIルール</a><a href="#open-issues">8. 未決定事項</a>
+  </aside>
+  <main>
+    <section class="hero">
+      <span class="pill">v0.1</span><span class="pill">MVP想定</span>
+      <h1>画面設計書</h1>
+      <p class="lead">参加者側・出題者側の画面遷移、画面一覧、主要ワイヤーフレームを整理する資料です。</p>
+    </section>
+    
+<section id="position" class="card">
+  <h2>1. 位置づけ</h2>
+  <p>本資料は、謎解き企画用アプリのうち、参加者側アプリと出題者側アプリの<strong>画面遷移・画面構成・ワイヤーフレーム</strong>を定義する。全体要件定義書で整理した機能要件を、実際のUIに落とし込むための資料である。</p>
+  <div class="ok"><strong>この資料で決めること:</strong> 参加者と出題者が、どの順番で、どの画面を使い、どの情報を見て操作するか。</div>
+</section>
+
+<section id="users" class="card">
+  <h2>2. 利用者と画面グループ</h2>
+  <table>
+    <tr><th>利用者</th><th>主な目的</th><th>画面グループ</th></tr>
+    <tr><td>参加者</td><td>ルーム参加、問題確認、解答送信、得点確認</td><td>参加画面、待機画面、問題画面、結果画面、終了画面</td></tr>
+    <tr><td>出題者</td><td>ルーム作成、問題管理、進行操作、得点確認</td><td>ログイン画面、ダッシュボード、問題管理、進行管理、ランキング画面</td></tr>
+  </table>
+</section>
+
+<section id="flow" class="card">
+  <h2>3. 画面遷移図</h2>
+  <h3>3.1 参加者側</h3>
+  <div class="diagram">
+    <div class="flow">
+      <div class="node">アクセス</div><div class="arrow">→</div>
+      <div class="node">ルーム参加</div><div class="arrow">→</div>
+      <div class="node">待機</div><div class="arrow">→</div>
+      <div class="node">問題解答</div><div class="arrow">→</div>
+      <div class="node">結果表示</div><div class="arrow">→</div>
+      <div class="node">次問待機</div><div class="arrow">→</div>
+      <div class="node">終了</div>
+    </div>
+  </div>
+  <p class="small muted">補足: 参加者側は、出題者がルーム状態を変更すると「待機」「問題解答」「終了」へ自動的に反映されることが望ましい。</p>
+
+  <h3>3.2 出題者側</h3>
+  <div class="diagram">
+    <div class="flow">
+      <div class="node host">ログイン</div><div class="arrow">→</div>
+      <div class="node host">ルーム一覧</div><div class="arrow">→</div>
+      <div class="node host">ルーム作成</div><div class="arrow">→</div>
+      <div class="node host">問題管理</div><div class="arrow">→</div>
+      <div class="node host">進行管理</div><div class="arrow">→</div>
+      <div class="node host">結果確認</div>
+    </div>
+  </div>
+
+  <h3>3.3 エラー・例外系</h3>
+  <div class="diagram">
+    <div class="flow">
+      <div class="node err">通信断</div><div class="arrow">→</div>
+      <div class="node err">再接続中</div><div class="arrow">→</div>
+      <div class="node">直前画面へ復帰</div>
+    </div>
+  </div>
+</section>
+
+<section id="participant-screens" class="card">
+  <h2>4. 参加者側 画面一覧</h2>
+  <table>
+    <tr><th>画面ID</th><th>画面名</th><th>目的</th><th>主要要素</th></tr>
+    <tr><td>P-01</td><td>ルーム参加画面</td><td>ルーム番号と参加者名を入力して参加する</td><td>ルーム番号、名前、参加ボタン、エラー表示</td></tr>
+    <tr><td>P-02</td><td>待機画面</td><td>問題開始まで待つ</td><td>参加済み表示、接続状態、案内文</td></tr>
+    <tr><td>P-03</td><td>問題解答画面</td><td>問題画像を見て解答する</td><td>問題画像、解答欄、送信ボタン、得点、残り時間</td></tr>
+    <tr><td>P-04</td><td>結果表示画面</td><td>解答結果を確認する</td><td>正解/不正解、獲得点、次の案内</td></tr>
+    <tr><td>P-05</td><td>終了画面</td><td>最終結果を確認する</td><td>最終得点、順位、運営メッセージ</td></tr>
+  </table>
+</section>
+
+<section id="host-screens" class="card">
+  <h2>5. 出題者側 画面一覧</h2>
+  <table>
+    <tr><th>画面ID</th><th>画面名</th><th>目的</th><th>主要要素</th></tr>
+    <tr><td>H-01</td><td>ログイン画面</td><td>出題者のみが管理画面に入る</td><td>メール/パスワード、ログインボタン</td></tr>
+    <tr><td>H-02</td><td>ルーム一覧画面</td><td>作成済みルームを管理する</td><td>ルーム一覧、作成ボタン、状態表示</td></tr>
+    <tr><td>H-03</td><td>ルーム作成・設定画面</td><td>企画単位の設定を行う</td><td>ルーム名、参加形式、解答ルール、公開状態</td></tr>
+    <tr><td>H-04</td><td>問題管理画面</td><td>問題画像・正答・配点を登録する</td><td>問題一覧、画像アップロード、正答、配点</td></tr>
+    <tr><td>H-05</td><td>進行管理画面</td><td>問題の開始・締切・次問移動を行う</td><td>現在問題、開始/締切ボタン、参加者状況</td></tr>
+    <tr><td>H-06</td><td>解答状況画面</td><td>参加者の回答状況を確認する</td><td>送信数、正解数、未回答者、ログ</td></tr>
+    <tr><td>H-07</td><td>ランキング画面</td><td>得点結果を確認・表示する</td><td>順位表、得点、CSV出力</td></tr>
+  </table>
+</section>
+
+<section id="wireframes" class="card">
+  <h2>6. ワイヤーフレーム</h2>
+  <h3>6.1 参加者側: 問題解答画面</h3>
+  <div class="grid two">
+    <div class="wire">
+      <div class="top"><span>Room: 123456</span><span>12:34</span></div>
+      <div class="box"><strong>第3問</strong>　ひらめきの扉</div>
+      <div class="image">問題画像</div>
+      <div class="input">解答を入力してください</div>
+      <div class="btn">送信する</div>
+      <div class="split">
+        <div class="box">得点: 20</div>
+        <div class="box">残り: 02:10</div>
+      </div>
+      <div class="box">結果メッセージ表示</div>
+    </div>
+    <div>
+      <h4>設計意図</h4>
+      <ul>
+        <li>スマホでも問題画像と入力欄が同時に見える構成にする。</li>
+        <li>送信ボタンは親指で押しやすい位置に置く。</li>
+        <li>Enterキー送信にも対応し、PC参加者の操作を早くする。</li>
+        <li>正解後は入力欄をロックするか、再送信不可であることを明示する。</li>
+      </ul>
+      <div class="note">画像が縦長・横長のどちらでも破綻しないよう、画像表示エリアは拡大表示・ピンチズームの扱いを検討する。</div>
+    </div>
+  </div>
+
+  <h3>6.2 出題者側: 進行管理画面</h3>
+  <div class="grid two">
+    <div class="wire">
+      <div class="top"><span>管理画面</span><span>接続中</span></div>
+      <div class="box"><strong>現在のルーム:</strong> 夏祭り謎解き</div>
+      <div class="box"><strong>現在問題:</strong> 第3問 / 10問</div>
+      <div class="split">
+        <div class="btn">問題を開始</div>
+        <div class="btn">解答を締切</div>
+      </div>
+      <div class="box">参加者: 24人 / 解答済み: 18人 / 正解: 11人</div>
+      <div class="box">直近の解答ログ<br>15:21 Aチーム: 正解<br>15:22 Bチーム: 不正解</div>
+      <div class="btn">次の問題へ</div>
+    </div>
+    <div>
+      <h4>設計意図</h4>
+      <ul>
+        <li>出題者が迷わないよう、進行ボタンを大きくする。</li>
+        <li>危険操作には確認ダイアログを出す。</li>
+        <li>参加者の状況をリアルタイムに確認できるようにする。</li>
+        <li>誤って次問へ進めた場合のリカバリ方針を決める。</li>
+      </ul>
+      <div class="danger">進行管理画面はイベント当日の司令塔。ボタンの押し間違いが企画事故につながるため、「開始」「締切」「終了」は特に視認性と確認導線を分ける。</div>
+    </div>
+  </div>
+</section>
+
+<section id="ui-rules" class="card">
+  <h2>7. UIルール</h2>
+  <table>
+    <tr><th>分類</th><th>方針</th></tr>
+    <tr><td>正解表示</td><td>参加者には即時に正解/不正解を返す。ただし正答文字列そのものは返さない。</td></tr>
+    <tr><td>エラー表示</td><td>通信エラー、締切済み、重複送信を明確に分けて表示する。</td></tr>
+    <tr><td>色設計</td><td>正解は肯定的、不正解は落ち込みすぎない表現にする。運営画面の危険操作は警告色を使う。</td></tr>
+    <tr><td>レスポンシブ</td><td>参加者側はスマホ最優先、出題者側はPC/タブレット優先。</td></tr>
+    <tr><td>アクセシビリティ</td><td>色だけで状態を表さず、テキストとアイコンを併用する。</td></tr>
+  </table>
+</section>
+
+<section id="open-issues" class="card">
+  <h2>8. 未決定事項</h2>
+  <ul>
+    <li>ランキングを参加者へ常時見せるか、終了後のみ見せるか。</li>
+    <li>ヒントを問題ごとに表示するか、出題者が手動で公開するか。</li>
+    <li>チーム戦を前提にするか、個人戦にも対応するか。</li>
+    <li>途中参加を許可するか。</li>
+    <li>出題者が誤操作したときの巻き戻しを許可するか。</li>
+  </ul>
+</section>
+
+    <div class="footer">本資料は初期検討用です。実装前に、企画形式・参加人数・ネットワーク環境・運営体制に合わせて更新してください。</div>
+  </main>
+</div>
+</body>
+</html>
