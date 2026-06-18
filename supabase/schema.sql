@@ -137,6 +137,15 @@ alter table public.answer_aliases enable row level security;
 alter table public.submissions enable row level security;
 alter table public.score_events enable row level security;
 
+grant usage on schema public to service_role;
+grant select, insert, update on table public.rooms to service_role;
+grant select, insert, update on table public.participants to service_role;
+grant select, insert, update on table public.questions to service_role;
+grant select, insert on table public.answer_aliases to service_role;
+grant select, insert on table public.submissions to service_role;
+grant select, insert on table public.score_events to service_role;
+grant execute on function public.increment_participant_score(uuid, integer) to service_role;
+
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
   'question-images',
