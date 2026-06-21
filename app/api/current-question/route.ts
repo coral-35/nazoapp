@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { DEFAULT_QUESTION_TIME_LIMIT_MS } from "@/lib/answer";
 import { normalizeRoomCode, jsonError } from "@/lib/http";
 import { getDisplayImageUrl } from "@/lib/question-images";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -37,6 +38,7 @@ export async function GET(request: Request) {
 
   let question = null;
   let hasCorrectSubmission = false;
+  let hasSubmission = false;
 
   if (
     room.current_question_id &&
@@ -44,7 +46,7 @@ export async function GET(request: Request) {
   ) {
     const { data: currentQuestion } = await supabase
       .from("questions")
-      .select("id, title, image_url, image_path, points, order_index, status")
+      .select("id, title, image_url, image_path, points, order_index, status, time_limit_ms")
       .eq("id", room.current_question_id)
       .eq("room_id", room.id)
       .single();
@@ -56,20 +58,31 @@ export async function GET(request: Request) {
         currentQuestion.image_url
       );
 
-      const { data: scoreEvent } = await supabase
-        .from("score_events")
-        .select("id")
-        .eq("participant_id", participant.id)
-        .eq("question_id", currentQuestion.id)
-        .maybeSingle();
+      const [{ data: scoreEvent }, { data: submissions }] = await Promise.all([
+        supabase
+          .from("score_events")
+          .select("id")
+          .eq("participant_id", participant.id)
+          .eq("question_id", currentQuestion.id)
+          .maybeSingle(),
+        supabase
+          .from("submissions")
+          .select("id")
+          .eq("room_id", room.id)
+          .eq("participant_id", participant.id)
+          .eq("question_id", currentQuestion.id)
+          .limit(1)
+      ]);
 
       hasCorrectSubmission = Boolean(scoreEvent);
+      hasSubmission = Boolean(submissions?.[0]);
       question = {
         id: currentQuestion.id,
         title: currentQuestion.title,
         imageUrl,
         points: currentQuestion.points,
         orderIndex: currentQuestion.order_index,
+        timeLimitMs: currentQuestion.time_limit_ms || DEFAULT_QUESTION_TIME_LIMIT_MS,
         status: room.status === "question_open" ? "open" : "closed"
       };
     }
@@ -88,6 +101,7 @@ export async function GET(request: Request) {
       totalScore: participant.total_score
     },
     question,
-    hasCorrectSubmission
+    hasCorrectSubmission,
+    hasSubmission
   });
 }

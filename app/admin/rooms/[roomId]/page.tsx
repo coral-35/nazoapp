@@ -1,9 +1,10 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { adminFetch, getAdminAccessToken } from "@/lib/admin-client";
+import { DEFAULT_QUESTION_TIME_LIMIT_MS, formatElapsedTime } from "@/lib/answer";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type RoomDetail = {
@@ -25,6 +26,7 @@ type Question = {
   display_image_url: string | null;
   answer_text: string;
   points: number;
+  time_limit_ms: number;
   order_index: number;
   status: string;
 };
@@ -43,6 +45,8 @@ type Submission = {
   submitted_answer: string;
   is_correct: boolean;
   awarded_points: number;
+  answer_elapsed_ms: number | null;
+  server_received_at: string | null;
   created_at: string;
 };
 
@@ -64,6 +68,9 @@ export default function AdminRoomDetailPage() {
   const [questionTitle, setQuestionTitle] = useState("");
   const [answerText, setAnswerText] = useState("");
   const [points, setPoints] = useState(10);
+  const [timeLimitSeconds, setTimeLimitSeconds] = useState(
+    DEFAULT_QUESTION_TIME_LIMIT_MS / 1000
+  );
   const [uploadedImage, setUploadedImage] = useState<UploadedImage | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -160,6 +167,7 @@ export default function AdminRoomDetailPage() {
           title: questionTitle,
           answerText,
           points,
+          timeLimitMs: Math.max(1, Math.round(timeLimitSeconds)) * 1000,
           imagePath: uploadedImage?.imagePath,
           imageUrl: uploadedImage?.imageUrl
         })
@@ -171,6 +179,7 @@ export default function AdminRoomDetailPage() {
       setQuestionTitle("");
       setAnswerText("");
       setPoints(10);
+      setTimeLimitSeconds(DEFAULT_QUESTION_TIME_LIMIT_MS / 1000);
       setUploadedImage(null);
       setNotice("問題を登録しました。");
       await loadDetail(token);
@@ -210,6 +219,36 @@ export default function AdminRoomDetailPage() {
   const participantNameById = new Map(
     (detail?.participants || []).map((participant) => [participant.id, participant.name])
   );
+  const questionTitleById = new Map(
+    (detail?.questions || []).map((question) => [question.id, question.title])
+  );
+  const rankedSubmissions = useMemo(() => {
+    const rows = detail?.room.current_question_id
+      ? (detail.submissions || []).filter(
+          (submission) => submission.question_id === detail.room.current_question_id
+        )
+      : detail?.submissions || [];
+
+    return [...rows].sort((a, b) => {
+      if (a.is_correct !== b.is_correct) {
+        return a.is_correct ? -1 : 1;
+      }
+
+      const aElapsed = a.answer_elapsed_ms ?? Number.POSITIVE_INFINITY;
+      const bElapsed = b.answer_elapsed_ms ?? Number.POSITIVE_INFINITY;
+      if (aElapsed !== bElapsed) {
+        return aElapsed - bElapsed;
+      }
+
+      const aReceived = Date.parse(a.server_received_at || a.created_at);
+      const bReceived = Date.parse(b.server_received_at || b.created_at);
+      if (aReceived !== bReceived) {
+        return aReceived - bReceived;
+      }
+
+      return a.id.localeCompare(b.id);
+    });
+  }, [detail]);
 
   return (
     <main className="app-shell">
@@ -288,6 +327,17 @@ export default function AdminRoomDetailPage() {
                           required
                         />
                       </label>
+                      <label className="field">
+                        <span>制限時間（秒）</span>
+                        <input
+                          className="input"
+                          type="number"
+                          min={1}
+                          value={timeLimitSeconds}
+                          onChange={(event) => setTimeLimitSeconds(Number(event.target.value))}
+                          required
+                        />
+                      </label>
                     </div>
                     <button className="button" type="submit" disabled={saving || uploading}>
                       {saving ? "登録中..." : "問題を登録"}
@@ -319,7 +369,8 @@ export default function AdminRoomDetailPage() {
                           />
                         ) : null}
                         <div className="muted">
-                          配点 {question.points} / 正答 {question.answer_text}
+                          配点 {question.points} / 制限時間{" "}
+                          {formatElapsedTime(question.time_limit_ms)} / 正答 {question.answer_text}
                         </div>
                         <div className="action-row">
                           <button
@@ -417,27 +468,37 @@ export default function AdminRoomDetailPage() {
                 </div>
 
                 <div className="panel stack">
-                  <h2>直近の解答</h2>
+                  <h2>{detail.room.current_question_id ? "現在問題の解答結果" : "解答結果"}</h2>
                   <div className="table-wrap">
                     <table>
                       <thead>
                         <tr>
+                          <th>順位</th>
                           <th>参加者</th>
+                          <th>問題</th>
                           <th>解答</th>
                           <th>結果</th>
+                          <th>回答時間</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {detail.submissions.map((submission) => (
+                        {rankedSubmissions.map((submission, index) => (
                           <tr key={submission.id}>
+                            <td>{index + 1}</td>
                             <td>{participantNameById.get(submission.participant_id) || "不明"}</td>
+                            <td>{questionTitleById.get(submission.question_id) || "不明"}</td>
                             <td>{submission.submitted_answer}</td>
                             <td>{submission.is_correct ? "正解" : "不正解"}</td>
+                            <td>
+                              {typeof submission.answer_elapsed_ms === "number"
+                                ? formatElapsedTime(submission.answer_elapsed_ms)
+                                : "-"}
+                            </td>
                           </tr>
                         ))}
-                        {detail.submissions.length === 0 ? (
+                        {rankedSubmissions.length === 0 ? (
                           <tr>
-                            <td colSpan={3}>まだ解答はありません。</td>
+                            <td colSpan={6}>まだ解答はありません。</td>
                           </tr>
                         ) : null}
                       </tbody>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { normalizeAnswer } from "@/lib/answer";
+import { DEFAULT_QUESTION_TIME_LIMIT_MS, normalizeAnswer } from "@/lib/answer";
 import { ensureRoomOwner, requireAdminUser } from "@/lib/admin-auth";
 import { jsonError, toPositiveInteger } from "@/lib/http";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -9,6 +9,7 @@ type CreateQuestionBody = {
   title?: string;
   answerText?: string;
   points?: number | string;
+  timeLimitMs?: number | string;
   imageUrl?: string;
   imagePath?: string;
 };
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
   const title = (body.title || "").trim();
   const answerText = (body.answerText || "").trim();
   const points = toPositiveInteger(body.points, 10);
+  const timeLimitMs = toPositiveInteger(body.timeLimitMs, DEFAULT_QUESTION_TIME_LIMIT_MS);
   const imageUrl = (body.imageUrl || "").trim() || null;
   const imagePath = (body.imagePath || "").trim() || null;
 
@@ -62,10 +64,11 @@ export async function POST(request: Request) {
       answer_text: answerText,
       normalized_answer: normalizeAnswer(answerText),
       points,
+      time_limit_ms: timeLimitMs,
       order_index: orderIndex,
       status: "draft"
     })
-    .select("id, title, image_url, image_path, answer_text, points, order_index, status")
+    .select("id, title, image_url, image_path, answer_text, points, time_limit_ms, order_index, status")
     .single();
 
   if (error || !data) {

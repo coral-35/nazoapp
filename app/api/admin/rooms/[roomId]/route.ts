@@ -35,7 +35,7 @@ export async function GET(request: Request, context: RouteContext) {
     await Promise.all([
       supabase
         .from("questions")
-        .select("id, title, image_url, image_path, answer_text, points, order_index, status, created_at")
+        .select("id, title, image_url, image_path, answer_text, points, time_limit_ms, order_index, status, created_at")
         .eq("room_id", roomId)
         .order("order_index", { ascending: true }),
       supabase
@@ -45,10 +45,9 @@ export async function GET(request: Request, context: RouteContext) {
         .order("created_at", { ascending: true }),
       supabase
         .from("submissions")
-        .select("id, participant_id, question_id, submitted_answer, is_correct, awarded_points, created_at")
+        .select("id, participant_id, question_id, submitted_answer, is_correct, awarded_points, answer_elapsed_ms, server_received_at, created_at")
         .eq("room_id", roomId)
         .order("created_at", { ascending: false })
-        .limit(20)
     ]);
 
   const questionsWithSignedImages = await Promise.all(
