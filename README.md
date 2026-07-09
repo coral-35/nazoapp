@@ -40,6 +40,11 @@ QUESTION_IMAGE_BUCKET=question-images
 4. `question-images` Storageバケットが作成されます。MVPではAPIがservice roleでアップロードし、参加者へは現在問題の署名付きURLのみ返します。
 5. `.env.local` にURL、anon key、service role keyを設定します。
 
+## 開発資料
+
+- [ローカルSupabase開発環境 立ち上げ仕様書](nazotoki_codex_docs/local-supabase-development-guide.md)
+- [シンプルなNext.js + Supabaseアプリ 要件定義入力資料](nazotoki_codex_docs/simple-next-supabase-requirements-input.md)
+
 ## 主要画面
 
 - `/` トップ
