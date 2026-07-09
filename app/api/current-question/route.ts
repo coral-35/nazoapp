@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { DEFAULT_QUESTION_TIME_LIMIT_MS } from "@/lib/answer";
+import { DEFAULT_MAX_ATTEMPTS, DEFAULT_QUESTION_TIME_LIMIT_MS } from "@/lib/answer";
+import { buildCorrectAnswerHashes } from "@/lib/answer-hash.server";
 import { normalizeRoomCode, jsonError } from "@/lib/http";
 import { getDisplayImageUrl } from "@/lib/question-images";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -46,7 +47,9 @@ export async function GET(request: Request) {
   ) {
     const { data: currentQuestion } = await supabase
       .from("questions")
-      .select("id, title, image_url, image_path, points, order_index, status, time_limit_ms")
+      .select(
+        "id, title, image_url, image_path, answer_text, points, order_index, status, time_limit_ms, max_attempts"
+      )
       .eq("id", room.current_question_id)
       .eq("room_id", room.id)
       .single();
@@ -58,7 +61,8 @@ export async function GET(request: Request) {
         currentQuestion.image_url
       );
 
-      const [{ data: scoreEvent }, { data: submissions }] = await Promise.all([
+      const [{ data: scoreEvent }, { data: submissions }, { data: answerAliases }] =
+        await Promise.all([
         supabase
           .from("score_events")
           .select("id")
@@ -71,7 +75,16 @@ export async function GET(request: Request) {
           .eq("room_id", room.id)
           .eq("participant_id", participant.id)
           .eq("question_id", currentQuestion.id)
-          .limit(1)
+          .limit(1),
+        supabase
+          .from("answer_aliases")
+          .select("alias_text")
+          .eq("question_id", currentQuestion.id)
+      ]);
+
+      const correctAnswerHashes = buildCorrectAnswerHashes([
+        currentQuestion.answer_text,
+        ...(answerAliases || []).map((alias) => alias.alias_text)
       ]);
 
       hasCorrectSubmission = Boolean(scoreEvent);
@@ -83,6 +96,16 @@ export async function GET(request: Request) {
         points: currentQuestion.points,
         orderIndex: currentQuestion.order_index,
         timeLimitMs: currentQuestion.time_limit_ms || DEFAULT_QUESTION_TIME_LIMIT_MS,
+        maxAttempts: currentQuestion.max_attempts || DEFAULT_MAX_ATTEMPTS,
+        validation: {
+          mode: "local_hash",
+          type: "exact",
+          correctAnswerHashes,
+          caseSensitive: false,
+          trimWhitespace: true,
+          normalizeWidth: true,
+          normalizeKana: false
+        },
         status: room.status === "question_open" ? "open" : "closed"
       };
     }
@@ -102,6 +125,7 @@ export async function GET(request: Request) {
     },
     question,
     hasCorrectSubmission,
-    hasSubmission
+    hasSubmission,
+    serverNowMs: Date.now()
   });
 }

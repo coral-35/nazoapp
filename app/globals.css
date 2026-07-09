@@ -302,18 +302,38 @@ input {
 .question-image-wrap {
   display: grid;
   place-items: center;
-  min-height: 220px;
+  width: 100%;
+  aspect-ratio: 4 / 3;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #101820;
   overflow: hidden;
 }
 
+.question-image-wrap.preview {
+  border: 2px dashed #8ba0ad;
+  background: #f8fafb;
+}
+
+.question-image-placeholder {
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .question-image {
   width: 100%;
-  max-height: 58vh;
+  height: 100%;
   object-fit: contain;
   display: block;
+}
+
+.reveal-control {
+  display: grid;
+  min-height: 46px;
+}
+
+.answer-result-area {
+  min-height: 48px;
 }
 
 .table-wrap {
@@ -390,7 +410,4 @@ tr:last-child td {
     width: 100%;
   }
 
-  .question-image-wrap {
-    min-height: 180px;
-  }
 }

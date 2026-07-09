@@ -3,8 +3,38 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { formatElapsedTime } from "@/lib/answer";
+import { formatElapsedTime, normalizeAnswer, sha256Hex } from "@/lib/answer";
 import { participantStorageKey } from "@/lib/participant-storage";
+
+type FinalStatus = "correct" | "timeout" | "attempt_limit_exceeded";
+type SessionStatus = "ready" | "active" | "completed" | "submitting" | "submitted";
+
+type LocalAttempt = {
+  answer: string;
+  elapsedMs: number;
+  isCorrect: boolean;
+  beforeReveal: boolean;
+};
+
+type LocalQuestionSession = {
+  status: SessionStatus;
+  roomCode: string;
+  participantId: string;
+  questionId: string;
+  timeLimitMs: number;
+  maxAttempts: number;
+  attemptCount: number;
+  attempts: LocalAttempt[];
+  startedAtWallMs?: number;
+  deadlineAtWallMs?: number;
+  completedAtWallMs?: number;
+  answerElapsedMs?: number;
+  finalStatus?: FinalStatus;
+  finalAnswer?: string | null;
+  imageRevealed: boolean;
+  answeredBeforeReveal: boolean;
+  resultSubmitted: boolean;
+};
 
 type PlayState = {
   room: {
@@ -13,6 +43,7 @@ type PlayState = {
     status: string;
   };
   participant: {
+    id: string;
     name: string;
     totalScore: number;
   };
@@ -23,10 +54,21 @@ type PlayState = {
     points: number;
     orderIndex: number;
     timeLimitMs: number;
+    maxAttempts: number;
+    validation: {
+      mode: "local_hash";
+      type: "exact";
+      correctAnswerHashes: string[];
+      caseSensitive: false;
+      trimWhitespace: true;
+      normalizeWidth: true;
+      normalizeKana: false;
+    };
     status: "open" | "closed";
   };
   hasCorrectSubmission: boolean;
   hasSubmission: boolean;
+  serverNowMs: number;
 };
 
 type SavedParticipant = {
@@ -35,53 +77,78 @@ type SavedParticipant = {
   roomCode: string;
 };
 
+function questionSessionKey(roomCode: string, participantId: string, questionId: string) {
+  return `nazoapp:question-session:${roomCode}:${participantId}:${questionId}`;
+}
+
+function readQuestionSession(key: string): LocalQuestionSession | null {
+  const raw = sessionStorage.getItem(key);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as LocalQuestionSession;
+    if (
+      !parsed ||
+      !["ready", "active", "completed", "submitting", "submitted"].includes(parsed.status) ||
+      !Number.isInteger(parsed.attemptCount) ||
+      !Array.isArray(parsed.attempts)
+    ) {
+      return null;
+    }
+    return {
+      ...parsed,
+      imageRevealed: parsed.imageRevealed ?? Boolean(parsed.startedAtWallMs),
+      answeredBeforeReveal: parsed.answeredBeforeReveal ?? false
+    };
+  } catch {
+    return null;
+  }
+}
+
+function finalStatusMessage(finalStatus: FinalStatus | undefined) {
+  if (finalStatus === "correct") {
+    return "正解です。";
+  }
+  if (finalStatus === "timeout") {
+    return "タイムアップです。";
+  }
+  return "解答回数の上限に達しました。";
+}
+
 export default function PlayPage() {
   const params = useParams<{ roomCode: string }>();
   const roomCode = useMemo(() => String(params.roomCode || "").toUpperCase(), [params.roomCode]);
   const [saved, setSaved] = useState<SavedParticipant | null>(null);
   const [playState, setPlayState] = useState<PlayState | null>(null);
+  const [session, setSession] = useState<LocalQuestionSession | null>(null);
   const [answer, setAnswer] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"notice" | "success" | "error">("notice");
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [questionVisibleAt, setQuestionVisibleAt] = useState<number | null>(null);
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
-  const visibleQuestionIdRef = useRef<string | null>(null);
-  const questionVisibleAtRef = useRef<number | null>(null);
+  const [imageStatus, setImageStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [judging, setJudging] = useState(false);
+  const [retryVersion, setRetryVersion] = useState(0);
+  const sessionRef = useRef<LocalQuestionSession | null>(null);
+  const initializedSessionKeyRef = useRef<string | null>(null);
+  const startedAtPerfRef = useRef<number | null>(null);
   const submitLockedRef = useRef(false);
+  const attemptLockedRef = useRef(false);
+  const retryAfterRef = useRef(0);
 
-  const syncPlayState = useCallback((nextState: PlayState) => {
-    const activeQuestionId =
-      nextState.room.status === "question_open" ? nextState.question?.id || null : null;
-
-    if (activeQuestionId) {
-      if (visibleQuestionIdRef.current !== activeQuestionId) {
-        const visibleAt = performance.now();
-        visibleQuestionIdRef.current = activeQuestionId;
-        questionVisibleAtRef.current = visibleAt;
-        submitLockedRef.current = nextState.hasSubmission;
-        setQuestionVisibleAt(visibleAt);
-        setRemainingMs(nextState.question?.timeLimitMs ?? null);
-        setHasSubmitted(nextState.hasSubmission);
-        setAnswer("");
-      } else {
-        if (nextState.hasSubmission) {
-          submitLockedRef.current = true;
-        }
-        setHasSubmitted(nextState.hasSubmission);
-      }
-    } else {
-      visibleQuestionIdRef.current = null;
-      questionVisibleAtRef.current = null;
-      submitLockedRef.current = false;
-      setQuestionVisibleAt(null);
-      setRemainingMs(null);
-      setHasSubmitted(false);
+  const commitSession = useCallback((nextSession: LocalQuestionSession | null) => {
+    sessionRef.current = nextSession;
+    setSession(nextSession);
+    if (nextSession) {
+      const key = questionSessionKey(
+        nextSession.roomCode,
+        nextSession.participantId,
+        nextSession.questionId
+      );
+      sessionStorage.setItem(key, JSON.stringify(nextSession));
     }
-
-    setPlayState(nextState);
   }, []);
 
   const loadState = useCallback(
@@ -92,39 +159,52 @@ export default function PlayPage() {
         )}&participant_token=${encodeURIComponent(participantToken)}`,
         { cache: "no-store" }
       );
-      const data = await response.json();
+      const data = (await response.json()) as PlayState & { error?: string };
       if (!response.ok) {
         throw new Error(data.error || "状態を取得できませんでした。");
       }
-      syncPlayState(data);
+
+      setPlayState((current) => {
+        const currentQuestion = current?.question;
+        const nextQuestion = data.question;
+        if (currentQuestion && nextQuestion && currentQuestion.id === nextQuestion.id) {
+          return { ...data, question: currentQuestion };
+        }
+        return data;
+      });
     },
-    [roomCode, syncPlayState]
+    [roomCode]
   );
 
-  useEffect(() => {
-    if (
-      !playState?.question ||
-      playState.room.status !== "question_open" ||
-      questionVisibleAt === null
-    ) {
-      return;
-    }
+  const finalizeResult = useCallback(
+    (
+      finalStatus: FinalStatus,
+      answerElapsedMs: number,
+      finalAnswer: string | null,
+      answeredBeforeReveal = false
+    ) => {
+      const current = sessionRef.current;
+      if (!current || (current.status !== "ready" && current.status !== "active")) {
+        return;
+      }
 
-    const updateRemaining = () => {
-      const elapsedMs = performance.now() - questionVisibleAt;
-      const nextRemainingMs = Math.max(0, playState.question!.timeLimitMs - elapsedMs);
-      setRemainingMs(nextRemainingMs);
-    };
-
-    updateRemaining();
-    const intervalId = window.setInterval(updateRemaining, 100);
-    return () => window.clearInterval(intervalId);
-  }, [
-    playState?.question?.id,
-    playState?.question?.timeLimitMs,
-    playState?.room.status,
-    questionVisibleAt
-  ]);
+      const completed: LocalQuestionSession = {
+        ...current,
+        status: "completed",
+        answerElapsedMs,
+        finalStatus,
+        finalAnswer,
+        answeredBeforeReveal,
+        completedAtWallMs: Date.now(),
+        resultSubmitted: false
+      };
+      commitSession(completed);
+      setRemainingMs(Math.max(0, current.timeLimitMs - answerElapsedMs));
+      setMessage(finalStatusMessage(finalStatus));
+      setMessageType(finalStatus === "correct" ? "success" : "notice");
+    },
+    [commitSession]
+  );
 
   useEffect(() => {
     const raw = localStorage.getItem(participantStorageKey(roomCode));
@@ -133,16 +213,19 @@ export default function PlayPage() {
       return;
     }
 
-    const parsed = JSON.parse(raw) as SavedParticipant;
+    let parsed: SavedParticipant;
+    try {
+      parsed = JSON.parse(raw) as SavedParticipant;
+    } catch {
+      setLoading(false);
+      return;
+    }
     setSaved(parsed);
 
     let active = true;
     async function tick() {
       try {
         await loadState(parsed.participantToken);
-        if (active) {
-          setMessage("");
-        }
       } catch (caught) {
         if (active) {
           setMessage(caught instanceof Error ? caught.message : "状態を取得できませんでした。");
@@ -155,133 +238,343 @@ export default function PlayPage() {
       }
     }
 
-    tick();
-    const timer = window.setInterval(tick, 3000);
+    void tick();
+    const timer = window.setInterval(() => void tick(), 3000);
     return () => {
       active = false;
       window.clearInterval(timer);
     };
   }, [loadState, roomCode]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!saved || !playState?.question) {
+  useEffect(() => {
+    const question = playState?.question;
+    const participant = playState?.participant;
+    if (!question || !participant) {
+      initializedSessionKeyRef.current = null;
+      sessionRef.current = null;
+      setSession(null);
+      setRemainingMs(null);
       return;
     }
 
-    if (
-      submitLockedRef.current ||
-      submitting ||
-      hasSubmitted ||
-      playState.hasSubmission ||
-      playState.hasCorrectSubmission
-    ) {
+    const key = questionSessionKey(roomCode, participant.id, question.id);
+    if (initializedSessionKeyRef.current === key) {
+      return;
+    }
+    initializedSessionKeyRef.current = key;
+    submitLockedRef.current = false;
+    retryAfterRef.current = 0;
+
+    const stored = readQuestionSession(key);
+    const matchesCurrentQuestion =
+      stored?.roomCode === roomCode &&
+      stored.participantId === participant.id &&
+      stored.questionId === question.id;
+    let restored = matchesCurrentQuestion ? stored : null;
+
+    if (!restored) {
+      restored = {
+        status: "ready",
+        roomCode,
+        participantId: participant.id,
+        questionId: question.id,
+        timeLimitMs: question.timeLimitMs,
+        maxAttempts: question.maxAttempts,
+        attemptCount: 0,
+        attempts: [],
+        imageRevealed: false,
+        answeredBeforeReveal: false,
+        resultSubmitted: false
+      };
+    } else if (restored.status === "submitting") {
+      restored = { ...restored, status: "completed", resultSubmitted: false };
+    }
+
+    restored = {
+      ...restored,
+      imageRevealed: restored.imageRevealed ?? Boolean(restored.startedAtWallMs),
+      answeredBeforeReveal: restored.answeredBeforeReveal ?? false
+    };
+
+    if (playState.hasSubmission) {
+      restored = { ...restored, status: "submitted", resultSubmitted: true };
+    } else if (restored.status === "active" && restored.startedAtWallMs && restored.deadlineAtWallMs) {
+      const elapsedWallMs = Math.max(0, Date.now() - restored.startedAtWallMs);
+      startedAtPerfRef.current = performance.now() - elapsedWallMs;
+      if (Date.now() >= restored.deadlineAtWallMs) {
+        restored = {
+          ...restored,
+          status: "completed",
+          finalStatus: "timeout",
+          finalAnswer: restored.attempts.at(-1)?.answer || null,
+          answerElapsedMs: restored.timeLimitMs,
+          completedAtWallMs: Date.now(),
+          resultSubmitted: false
+        };
+      }
+    }
+
+    const initialRemaining =
+      restored.status === "active" && restored.deadlineAtWallMs
+        ? Math.max(0, restored.deadlineAtWallMs - Date.now())
+        : restored.answerElapsedMs !== undefined
+          ? Math.max(0, restored.timeLimitMs - restored.answerElapsedMs)
+          : restored.timeLimitMs;
+    setRemainingMs(initialRemaining);
+    commitSession(restored);
+  }, [commitSession, playState, roomCode]);
+
+  useEffect(() => {
+    const question = playState?.question;
+    if (!question) {
+      setImageStatus("idle");
+      return;
+    }
+    if (!question.imageUrl) {
+      setImageStatus("ready");
       return;
     }
 
-    if (!answer.trim()) {
-      setMessage("解答を入力してください。");
-      setMessageType("error");
+    let active = true;
+    const image = new Image();
+    setImageStatus("loading");
+    image.onload = () => active && setImageStatus("ready");
+    image.onerror = () => active && setImageStatus("error");
+    image.src = question.imageUrl;
+    return () => {
+      active = false;
+    };
+  }, [playState?.question?.id, playState?.question?.imageUrl]);
+
+  useEffect(() => {
+    if (session?.status !== "active") {
       return;
     }
 
-    const visibleAt = questionVisibleAtRef.current;
-    if (visibleAt === null) {
-      setMessage("回答時間を計測できませんでした。問題を再読み込みしてください。");
-      setMessageType("error");
-      return;
-    }
+    const updateRemaining = () => {
+      const current = sessionRef.current;
+      const startedAtPerf = startedAtPerfRef.current;
+      if (!current || current.status !== "active" || startedAtPerf === null) {
+        return;
+      }
 
-    const answerElapsedMs = Math.round(performance.now() - visibleAt);
-    if (!Number.isFinite(answerElapsedMs) || !Number.isInteger(answerElapsedMs) || answerElapsedMs < 0) {
-      setMessage("回答時間が正しくありません。問題を再読み込みしてください。");
-      setMessageType("error");
-      return;
-    }
+      const elapsedMs = Math.max(0, performance.now() - startedAtPerf);
+      const perfRemainingMs = current.timeLimitMs - elapsedMs;
+      const wallRemainingMs = current.deadlineAtWallMs
+        ? current.deadlineAtWallMs - Date.now()
+        : perfRemainingMs;
+      const nextRemainingMs = Math.max(0, Math.min(perfRemainingMs, wallRemainingMs));
+      setRemainingMs(nextRemainingMs);
 
-    if (answerElapsedMs > playState.question.timeLimitMs) {
-      setRemainingMs(0);
-      setMessage("制限時間を超過しました。");
-      setMessageType("notice");
+      if (nextRemainingMs <= 0) {
+        finalizeResult("timeout", current.timeLimitMs, current.attempts.at(-1)?.answer || null);
+      }
+    };
+
+    updateRemaining();
+    const intervalId = window.setInterval(updateRemaining, 100);
+    return () => window.clearInterval(intervalId);
+  }, [finalizeResult, session?.questionId, session?.status]);
+
+  const submitFinalResult = useCallback(async () => {
+    const current = sessionRef.current;
+    if (!saved || !current || current.status !== "completed" || submitLockedRef.current) {
       return;
     }
 
     submitLockedRef.current = true;
-    setSubmitting(true);
-    setHasSubmitted(true);
-    setMessage("");
+    commitSession({ ...current, status: "submitting" });
     try {
       const response = await fetch("/api/submit-answer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           roomCode,
+          participantId: current.participantId,
           participantToken: saved.participantToken,
-          questionId: playState.question.id,
-          answer,
-          answerElapsedMs
+          questionId: current.questionId,
+          finalStatus: current.finalStatus,
+          isCorrect: current.finalStatus === "correct",
+          finalAnswer: current.finalAnswer ?? null,
+          answerElapsedMs: current.answerElapsedMs,
+          attemptCount: current.attemptCount,
+          maxAttempts: current.maxAttempts,
+          attempts: current.attempts,
+          answeredBeforeReveal: current.answeredBeforeReveal,
+          clientStartedAt: current.startedAtWallMs
+            ? new Date(current.startedAtWallMs).toISOString()
+            : undefined,
+          clientCompletedAt: current.completedAtWallMs
+            ? new Date(current.completedAtWallMs).toISOString()
+            : undefined
         })
       });
       const data = await response.json();
-
-      if (!response.ok) {
-        if (data.error === "DUPLICATE_ANSWER") {
-          setMessage(data.message || "この問題には回答済みです。");
-          setMessageType("notice");
-          setHasSubmitted(true);
-          try {
-            await loadState(saved.participantToken);
-          } catch {
-            // The duplicate answer was already rejected; polling will catch up later.
-          }
-          return;
-        }
-
-        if (data.error === "QUESTION_NOT_ACTIVE" || data.result === "closed") {
-          setMessage(data.message || "この問題は受付終了、または現在の問題ではありません。");
-          setMessageType("notice");
-          try {
-            await loadState(saved.participantToken);
-          } catch {
-            // Keep the user-facing closed message if the follow-up refresh fails.
-          }
-          return;
-        }
-
-        setHasSubmitted(false);
-        submitLockedRef.current = false;
-        throw new Error(data.message || data.error || "解答送信に失敗しました。");
+      if (!response.ok && data.error !== "DUPLICATE_ANSWER") {
+        throw new Error(data.message || data.error || "最終結果の送信に失敗しました。");
       }
 
-      const elapsedLabel =
-        typeof data.answerElapsedMs === "number" ? ` 回答時間: ${formatElapsedTime(data.answerElapsedMs)}` : "";
-      setMessage(`${data.message || "送信しました。"}${elapsedLabel}`);
-      setMessageType(data.isCorrect ? "success" : data.result === "closed" ? "notice" : "error");
-      setAnswer("");
+      retryAfterRef.current = 0;
+      commitSession({ ...current, status: "submitted", resultSubmitted: true });
+      setMessage(
+        data.error === "DUPLICATE_ANSWER"
+          ? data.message || "この問題の最終結果は送信済みです。"
+          : data.message || finalStatusMessage(current.finalStatus)
+      );
+      setMessageType(current.finalStatus === "correct" ? "success" : "notice");
       try {
         await loadState(saved.participantToken);
       } catch {
-        // The answer was submitted; the regular polling loop will refresh the score.
+        // The final result is persisted; regular polling will refresh the score.
       }
     } catch (caught) {
-      setHasSubmitted(false);
-      submitLockedRef.current = false;
-      setMessage(caught instanceof Error ? caught.message : "解答送信に失敗しました。");
+      retryAfterRef.current = Date.now() + 3000;
+      commitSession({ ...current, status: "completed", resultSubmitted: false });
+      setMessage(caught instanceof Error ? caught.message : "最終結果の送信に失敗しました。");
       setMessageType("error");
     } finally {
-      setSubmitting(false);
+      submitLockedRef.current = false;
+    }
+  }, [commitSession, loadState, roomCode, saved]);
+
+  useEffect(() => {
+    if (session?.status !== "completed") {
+      return;
+    }
+
+    const delayMs = Math.max(0, retryAfterRef.current - Date.now());
+    const timer = window.setTimeout(() => {
+      void submitFinalResult().finally(() => setRetryVersion((value) => value + 1));
+    }, delayMs);
+    return () => window.clearTimeout(timer);
+  }, [retryVersion, session?.status, submitFinalResult]);
+
+  function startQuestion() {
+    const current = sessionRef.current;
+    const question = playState?.question;
+    if (
+      !current ||
+      !question ||
+      current.status !== "ready" ||
+      imageStatus !== "ready" ||
+      playState?.room.status !== "question_open" ||
+      playState.hasSubmission
+    ) {
+      return;
+    }
+
+    const startedAtWallMs = Date.now();
+    startedAtPerfRef.current = performance.now();
+    setRemainingMs(question.timeLimitMs);
+    setMessage("");
+    setAnswer("");
+    commitSession({
+      ...current,
+      status: "active",
+      timeLimitMs: question.timeLimitMs,
+      maxAttempts: question.maxAttempts,
+      imageRevealed: true,
+      answeredBeforeReveal: false,
+      startedAtWallMs,
+      deadlineAtWallMs: startedAtWallMs + question.timeLimitMs,
+      resultSubmitted: false
+    });
+  }
+
+  async function handleAttempt(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const current = sessionRef.current;
+    const question = playState?.question;
+    const submittedAnswer = answer.trim();
+    if (
+      !current ||
+      !question ||
+      (current.status !== "ready" && current.status !== "active") ||
+      playState.room.status !== "question_open" ||
+      attemptLockedRef.current
+    ) {
+      return;
+    }
+    if (!submittedAnswer) {
+      setMessage("解答を入力してください。");
+      setMessageType("error");
+      return;
+    }
+    const isBeforeReveal = current.status === "ready";
+    if (!isBeforeReveal && current.deadlineAtWallMs && Date.now() >= current.deadlineAtWallMs) {
+      finalizeResult("timeout", current.timeLimitMs, current.attempts.at(-1)?.answer || null);
+      return;
+    }
+
+    const startedAtPerf = startedAtPerfRef.current;
+    if (!isBeforeReveal && startedAtPerf === null) {
+      setMessage("回答時間を復元できませんでした。ページを再読み込みしてください。");
+      setMessageType("error");
+      return;
+    }
+    const elapsedMs = isBeforeReveal
+      ? 0
+      : Math.min(
+          current.timeLimitMs,
+          Math.max(0, Math.round(performance.now() - (startedAtPerf as number)))
+        );
+
+    attemptLockedRef.current = true;
+    setJudging(true);
+    try {
+      const inputHash = await sha256Hex(normalizeAnswer(submittedAnswer));
+      if (
+        sessionRef.current?.status !== "ready" &&
+        sessionRef.current?.status !== "active"
+      ) {
+        return;
+      }
+      const isCorrect = question.validation.correctAnswerHashes.includes(inputHash);
+      const nextAttempt: LocalAttempt = {
+        answer: submittedAnswer,
+        elapsedMs,
+        isCorrect,
+        beforeReveal: isBeforeReveal
+      };
+      const nextAttemptCount = current.attemptCount + 1;
+      const activeSession: LocalQuestionSession = {
+        ...current,
+        attemptCount: nextAttemptCount,
+        attempts: [...current.attempts, nextAttempt]
+      };
+      commitSession(activeSession);
+      setAnswer("");
+
+      if (isCorrect) {
+        finalizeResult("correct", elapsedMs, submittedAnswer, isBeforeReveal);
+      } else if (nextAttemptCount >= current.maxAttempts) {
+        finalizeResult("attempt_limit_exceeded", elapsedMs, submittedAnswer);
+      } else {
+        const remainingAttempts = current.maxAttempts - nextAttemptCount;
+        setMessage(`不正解です。残り${remainingAttempts}回回答できます。`);
+        setMessageType("error");
+      }
+    } catch {
+      setMessage("ローカル正誤判定に失敗しました。安全な接続で再読み込みしてください。");
+      setMessageType("error");
+    } finally {
+      attemptLockedRef.current = false;
+      setJudging(false);
     }
   }
 
-  const isTimedOut = Boolean(playState?.question) && remainingMs !== null && remainingMs <= 0;
-  const hasAnySubmission =
-    hasSubmitted || Boolean(playState?.hasSubmission) || Boolean(playState?.hasCorrectSubmission);
+  const isReady = session?.status === "ready";
+  const imageRevealed = Boolean(session?.imageRevealed);
   const canAnswer =
-    Boolean(playState?.question) &&
+    (session?.status === "ready" || session?.status === "active") &&
     playState?.room.status === "question_open" &&
-    questionVisibleAt !== null &&
-    !hasAnySubmission &&
-    !isTimedOut;
+    !playState.hasSubmission &&
+    !judging &&
+    (session?.status === "ready" || (remainingMs ?? 0) > 0);
+  const remainingAttempts = session ? Math.max(0, session.maxAttempts - session.attemptCount) : 0;
+  const displayedTimeMs = imageRevealed
+    ? Math.max(0, Math.round(remainingMs ?? session?.timeLimitMs ?? 0))
+    : playState?.question?.timeLimitMs ?? 0;
 
   return (
     <main className="app-shell">
@@ -348,63 +641,86 @@ export default function PlayPage() {
                     <div className="muted">第{playState.question.orderIndex}問</div>
                     <h1>{playState.question.title}</h1>
                   </div>
-                  {playState.room.status === "question_open" ? (
-                    <div className={`timer-row ${isTimedOut ? "timeout" : ""}`}>
-                      <span>残り時間</span>
-                      <strong>
-                        {formatElapsedTime(
-                          Math.max(0, Math.round(remainingMs ?? playState.question.timeLimitMs))
-                        )}
-                      </strong>
-                    </div>
-                  ) : null}
-                  <div className="question-image-wrap">
-                    {playState.question.imageUrl ? (
+                  <div
+                    className={`timer-row ${imageRevealed && displayedTimeMs <= 0 ? "timeout" : ""}`}
+                  >
+                    <span>{imageRevealed ? "残り時間" : "制限時間"}</span>
+                    <strong>{formatElapsedTime(displayedTimeMs)}</strong>
+                  </div>
+                  <div className="muted">
+                    解答可能回数 {playState.question.maxAttempts}回 / 解答済み{" "}
+                    {session?.attemptCount || 0}回 / 残り {remainingAttempts}回
+                  </div>
+                  <div className={`question-image-wrap ${imageRevealed ? "" : "preview"}`}>
+                    {imageRevealed && playState.question.imageUrl ? (
                       <img
                         className="question-image"
                         src={playState.question.imageUrl}
                         alt={`${playState.question.title}の問題画像`}
                       />
-                    ) : (
+                    ) : imageRevealed ? (
                       <div className="muted">問題画像が登録されていません。</div>
+                    ) : (
+                      <div className="question-image-placeholder">画像はまだ非表示です</div>
                     )}
                   </div>
 
-                  {playState.hasCorrectSubmission ? (
-                    <div className="message success">この問題は正解済みです。</div>
-                  ) : null}
+                  <div className="reveal-control">
+                    {isReady && playState.room.status === "question_open" && !playState.hasSubmission ? (
+                      <button
+                        className="button"
+                        type="button"
+                        onClick={startQuestion}
+                        disabled={imageStatus !== "ready"}
+                      >
+                        {imageStatus === "ready" ? "画像を表示して開始" : "画像を準備中..."}
+                      </button>
+                    ) : null}
+                  </div>
 
-                  {!playState.hasCorrectSubmission && hasAnySubmission ? (
-                    <div className="message notice">この問題は回答済みです。</div>
-                  ) : null}
-
-                  {isTimedOut && !hasAnySubmission ? (
-                    <div className="message notice">タイムアップです。</div>
-                  ) : null}
-
-                  {playState.room.status === "question_closed" ? (
-                    <div className="message notice">この問題は締め切られました。</div>
-                  ) : null}
-
-                  <form className="form" onSubmit={handleSubmit}>
+                  <form className="form" onSubmit={handleAttempt}>
                     <label className="field">
                       <span>解答</span>
                       <input
                         className="input"
                         value={answer}
                         onChange={(event) => setAnswer(event.target.value)}
-                        disabled={!canAnswer || submitting}
+                        disabled={!canAnswer}
                         autoComplete="off"
                       />
                     </label>
-                    <button className="button" type="submit" disabled={!canAnswer || submitting}>
-                      {submitting ? "送信中..." : "解答を送信"}
+                    <button className="button" type="submit" disabled={!canAnswer}>
+                      {judging ? "判定中..." : "解答する"}
                     </button>
                   </form>
+
+                  <div className="answer-result-area" aria-live="polite">
+                    {session?.finalStatus ? (
+                      <div
+                        className={`message ${session.finalStatus === "correct" ? "success" : "notice"}`}
+                      >
+                        {finalStatusMessage(session.finalStatus)}
+                        {session.answeredBeforeReveal ? " 画像表示前に正解しました。" : ""}
+                        {session.status === "submitting"
+                          ? " 最終結果を送信中です。"
+                          : session.status === "completed"
+                            ? " 最終結果を再送します。"
+                            : " 最終結果を送信しました。"}
+                      </div>
+                    ) : playState.hasSubmission ? (
+                      <div className="message notice">この問題の最終結果は送信済みです。</div>
+                    ) : playState.room.status === "question_closed" ? (
+                      <div className="message notice">この問題は締め切られました。</div>
+                    ) : imageStatus === "error" && isReady ? (
+                      <div className="message error">
+                        問題画像の読み込みに失敗しました。再読み込みしてください。
+                      </div>
+                    ) : message ? (
+                      <div className={`message ${messageType}`}>{message}</div>
+                    ) : null}
+                  </div>
                 </>
               )}
-
-              {message ? <div className={`message ${messageType}`}>{message}</div> : null}
             </div>
           </>
         ) : null}

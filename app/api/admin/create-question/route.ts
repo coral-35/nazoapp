@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { DEFAULT_QUESTION_TIME_LIMIT_MS, normalizeAnswer } from "@/lib/answer";
+import {
+  DEFAULT_MAX_ATTEMPTS,
+  DEFAULT_QUESTION_TIME_LIMIT_MS,
+  MAX_ALLOWED_ATTEMPTS,
+  normalizeAnswer
+} from "@/lib/answer";
 import { ensureRoomOwner, requireAdminUser } from "@/lib/admin-auth";
 import { jsonError, toPositiveInteger } from "@/lib/http";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -10,6 +15,7 @@ type CreateQuestionBody = {
   answerText?: string;
   points?: number | string;
   timeLimitMs?: number | string;
+  maxAttempts?: number | string;
   imageUrl?: string;
   imagePath?: string;
 };
@@ -32,11 +38,19 @@ export async function POST(request: Request) {
   const answerText = (body.answerText || "").trim();
   const points = toPositiveInteger(body.points, 10);
   const timeLimitMs = toPositiveInteger(body.timeLimitMs, DEFAULT_QUESTION_TIME_LIMIT_MS);
+  const maxAttempts =
+    body.maxAttempts === undefined || body.maxAttempts === ""
+      ? DEFAULT_MAX_ATTEMPTS
+      : Number(body.maxAttempts);
   const imageUrl = (body.imageUrl || "").trim() || null;
   const imagePath = (body.imagePath || "").trim() || null;
 
   if (!roomId || !title || !answerText) {
     return jsonError("ルーム、問題タイトル、正答を入力してください。");
+  }
+
+  if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > MAX_ALLOWED_ATTEMPTS) {
+    return jsonError(`解答可能回数は1〜${MAX_ALLOWED_ATTEMPTS}の整数で指定してください。`);
   }
 
   const owner = await ensureRoomOwner(roomId, auth.user.id);
@@ -65,10 +79,13 @@ export async function POST(request: Request) {
       normalized_answer: normalizeAnswer(answerText),
       points,
       time_limit_ms: timeLimitMs,
+      max_attempts: maxAttempts,
       order_index: orderIndex,
       status: "draft"
     })
-    .select("id, title, image_url, image_path, answer_text, points, time_limit_ms, order_index, status")
+    .select(
+      "id, title, image_url, image_path, answer_text, points, time_limit_ms, max_attempts, order_index, status"
+    )
     .single();
 
   if (error || !data) {
