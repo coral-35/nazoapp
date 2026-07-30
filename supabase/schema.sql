@@ -49,11 +49,19 @@ create table if not exists public.participants (
   room_id uuid not null references public.rooms(id) on delete cascade,
   name text not null,
   token_hash text not null unique,
+  device_token_hash text,
   total_score integer not null default 0 check (total_score >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (room_id, name)
 );
+
+alter table public.participants
+  add column if not exists device_token_hash text;
+
+create unique index if not exists participants_unique_room_device
+on public.participants (room_id, device_token_hash)
+where device_token_hash is not null;
 
 create table if not exists public.questions (
   id uuid primary key default gen_random_uuid(),

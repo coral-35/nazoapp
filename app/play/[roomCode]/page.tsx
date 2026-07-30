@@ -156,6 +156,10 @@ export default function PlayPage() {
       );
       const data = (await response.json()) as PlayState & { error?: string };
       if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem(participantStorageKey(roomCode));
+          setSaved(null);
+        }
         throw new Error(data.error || "状態を取得できませんでした。");
       }
 
@@ -583,9 +587,6 @@ export default function PlayPage() {
       <header className="topbar">
         <Link className="brand" href="/">
           謎解き企画アプリ
-        </Link>
-        <Link className="link-button" href="/join">
-          参加し直す
         </Link>
       </header>
 

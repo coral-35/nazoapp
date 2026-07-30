@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   ANSWER_GRACE_MS,
   DEFAULT_MAX_ATTEMPTS,
@@ -7,6 +7,7 @@ import {
   normalizeAnswer,
   validateAnswerElapsedMs
 } from "@/lib/answer";
+import { getRequestDeviceIdentity } from "@/lib/device-identity.server";
 import { normalizeRoomCode, jsonError, toPositiveInteger } from "@/lib/http";
 import { isValidRoomCode } from "@/lib/room-code";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -52,7 +53,7 @@ function optionalIsoDate(value: string | undefined): string | null {
   return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   let body: SubmitBody;
 
   try {
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
   const answerElapsedMs = body.answerElapsedMs;
   const attemptCount = body.attemptCount;
   const answeredBeforeReveal = body.answeredBeforeReveal === true;
+  const deviceIdentity = getRequestDeviceIdentity(request);
 
   if (!roomCode || !participantToken || !questionId) {
     return jsonError("解答結果の記録に必要な情報が不足しています。");
@@ -119,13 +121,24 @@ export async function POST(request: Request) {
 
   const { data: participant, error: participantError } = await supabase
     .from("participants")
-    .select("id, room_id, total_score")
+    .select("id, room_id, total_score, device_token_hash")
     .eq("room_id", room.id)
     .eq("token_hash", hashParticipantToken(participantToken))
     .single();
 
   if (participantError || !participant || (body.participantId && body.participantId !== participant.id)) {
     return answerError("PARTICIPANT_NOT_FOUND", "参加者情報を確認できません。", 401);
+  }
+
+  if (
+    participant.device_token_hash &&
+    participant.device_token_hash !== deviceIdentity.hash
+  ) {
+    return answerError(
+      "PARTICIPANT_DEVICE_MISMATCH",
+      "この参加情報は別の端末に紐付いています。",
+      401
+    );
   }
 
   if (room.status !== "question_open" || room.current_question_id !== questionId) {

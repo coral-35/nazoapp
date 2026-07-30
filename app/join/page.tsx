@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { participantStorageKey } from "@/lib/participant-storage";
+import { participantStorageKey, readStoredParticipant } from "@/lib/participant-storage";
 import { isValidRoomCode } from "@/lib/room-code";
 
 export default function JoinPage() {
@@ -22,6 +22,11 @@ export default function JoinPage() {
       return;
     }
 
+    if (readStoredParticipant(localStorage, roomCode)) {
+      router.push(`/play/${roomCode}`);
+      return;
+    }
+
     if (!participantName.trim()) {
       setError("参加者名を入力してください。");
       return;
@@ -37,7 +42,11 @@ export default function JoinPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "ルーム参加に失敗しました。");
+        throw new Error(
+          data.code === "DEVICE_ALREADY_JOINED"
+            ? "この端末はすでにこのルームへ参加しています。"
+            : data.error || "ルーム参加に失敗しました。"
+        );
       }
 
       localStorage.setItem(

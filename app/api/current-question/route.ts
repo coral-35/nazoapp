@@ -1,13 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { DEFAULT_MAX_ATTEMPTS, DEFAULT_QUESTION_TIME_LIMIT_MS } from "@/lib/answer";
 import { buildCorrectAnswerHashes } from "@/lib/answer-hash.server";
+import {
+  attachDeviceCookie,
+  bindParticipantToDevice,
+  getRequestDeviceIdentity
+} from "@/lib/device-identity.server";
 import { normalizeRoomCode, jsonError } from "@/lib/http";
 import { isValidRoomCode } from "@/lib/room-code";
 import { getDisplayImageUrl } from "@/lib/question-images";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { hashParticipantToken } from "@/lib/tokens";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const roomCode = normalizeRoomCode(url.searchParams.get("room_code") || "");
   const participantToken = url.searchParams.get("participant_token") || "";
@@ -17,6 +22,7 @@ export async function GET(request: Request) {
   }
 
   const supabase = getSupabaseAdmin();
+  const deviceIdentity = getRequestDeviceIdentity(request);
   const { data: room, error: roomError } = await supabase
     .from("rooms")
     .select("id, room_code, title, status, current_question_id")
@@ -29,13 +35,17 @@ export async function GET(request: Request) {
 
   const { data: participant, error: participantError } = await supabase
     .from("participants")
-    .select("id, name, total_score")
+    .select("id, name, total_score, device_token_hash")
     .eq("room_id", room.id)
     .eq("token_hash", hashParticipantToken(participantToken))
     .single();
 
   if (participantError || !participant) {
     return jsonError("参加者情報を確認できません。もう一度参加してください。", 401);
+  }
+
+  if (!(await bindParticipantToDevice(supabase, participant, deviceIdentity.hash))) {
+    return jsonError("この参加情報は別の端末に紐付いています。", 401);
   }
 
   let question = null;
@@ -112,21 +122,24 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({
-    room: {
-      id: room.id,
-      roomCode: room.room_code,
-      title: room.title,
-      status: room.status
-    },
-    participant: {
-      id: participant.id,
-      name: participant.name,
-      totalScore: participant.total_score
-    },
-    question,
-    hasCorrectSubmission,
-    hasSubmission,
-    serverNowMs: Date.now()
-  });
+  return attachDeviceCookie(
+    NextResponse.json({
+      room: {
+        id: room.id,
+        roomCode: room.room_code,
+        title: room.title,
+        status: room.status
+      },
+      participant: {
+        id: participant.id,
+        name: participant.name,
+        totalScore: participant.total_score
+      },
+      question,
+      hasCorrectSubmission,
+      hasSubmission,
+      serverNowMs: Date.now()
+    }),
+    deviceIdentity
+  );
 }
