@@ -27,18 +27,41 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 QUESTION_IMAGE_BUCKET=question-images
+LOCAL_ADMIN_EMAIL=admin@example.test
+LOCAL_ADMIN_PASSWORD=
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY` はサーバー専用です。`NEXT_PUBLIC_` を付けないでください。
+`LOCAL_ADMIN_EMAIL` と `LOCAL_ADMIN_PASSWORD` はローカルSupabase専用の出題者アカウントです。パスワードは6文字以上で設定し、`.env.local` をGitへcommitしないでください。
 
 ## Supabase準備
 
 1. Supabaseでプロジェクトを作成します。
-2. Authenticationで出題者用ユーザーを作成します。
+2. リモート環境ではAuthenticationで出題者用ユーザーを作成します。ローカル環境では後述のseedコマンドを使用します。
 3. SQL Editorで [supabase/schema.sql](supabase/schema.sql) を実行します。
    既存環境を更新する場合は [20260621000000_local_start_multi_attempt_hash.sql](supabase/migrations/20260621000000_local_start_multi_attempt_hash.sql)、続けて [20260622000000_answered_before_reveal.sql](supabase/migrations/20260622000000_answered_before_reveal.sql) を適用します。
 4. `question-images` Storageバケットが作成されます。MVPではAPIがservice roleでアップロードし、参加者へは現在問題の署名付きURLのみ返します。
 5. `.env.local` にURL、anon key、service role keyを設定します。
+
+### ローカルSupabase
+
+[supabase/config.toml](supabase/config.toml) の `project_id` は `quiz` に統一しています。ローカルSupabaseと出題者アカウントは次のコマンドで起動・作成します。
+
+```bash
+cd /Users/user/nazo/quiz
+npm run supabase:start
+npm run dev
+```
+
+`npm run supabase:start` は `npx supabase start` の後に、`.env.local` の `LOCAL_ADMIN_EMAIL` と `LOCAL_ADMIN_PASSWORD` を使って出題者を作成します。すでに同じメールアドレスのユーザーがいる場合は変更しないため、日常起動で繰り返し実行できます。
+
+DBをmigrationとseedから再構築する必要がある場合だけ、次を実行します。このコマンドはローカルDB内のデータを削除します。
+
+```bash
+npm run supabase:reset
+```
+
+出題者作成スクリプトは `localhost`、`127.0.0.1`、`::1` 以外のSupabase URLを拒否します。リモート環境へローカル用アカウントを誤作成しません。
 
 ## 開発資料
 
