@@ -1,16 +1,8 @@
-import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { jsonError, logServerError } from "@/lib/http";
 import { requireAdminUser } from "@/lib/admin-auth";
+import { createRoomCode } from "@/lib/room-code.server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-
-function createRoomCode(): string {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = randomBytes(6);
-  return Array.from(bytes)
-    .map((byte) => alphabet[byte % alphabet.length])
-    .join("");
-}
 
 export async function POST(request: Request) {
   const auth = await requireAdminUser(request);

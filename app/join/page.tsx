@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { participantStorageKey } from "@/lib/participant-storage";
+import { isValidRoomCode } from "@/lib/room-code";
 
 export default function JoinPage() {
   const router = useRouter();
@@ -15,6 +16,11 @@ export default function JoinPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+
+    if (!isValidRoomCode(roomCode)) {
+      setError("ルーム番号は6桁の数字で入力してください。");
+      return;
+    }
 
     if (!participantName.trim()) {
       setError("参加者名を入力してください。");
@@ -73,9 +79,13 @@ export default function JoinPage() {
               <input
                 className="input"
                 value={roomCode}
-                onChange={(event) => setRoomCode(event.target.value.toUpperCase())}
+                onChange={(event) =>
+                  setRoomCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                }
                 autoComplete="off"
-                inputMode="text"
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength={6}
                 required
               />
             </label>

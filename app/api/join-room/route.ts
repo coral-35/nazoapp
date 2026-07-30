@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { normalizeRoomCode, jsonError } from "@/lib/http";
+import { isValidRoomCode } from "@/lib/room-code";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { createParticipantToken, hashParticipantToken } from "@/lib/tokens";
 
@@ -15,8 +16,8 @@ export async function POST(request: Request) {
   const roomCode = normalizeRoomCode(body.roomCode || "");
   const participantName = (body.participantName || "").trim();
 
-  if (!roomCode) {
-    return jsonError("ルーム番号を入力してください。");
+  if (!isValidRoomCode(roomCode)) {
+    return jsonError("ルーム番号は6桁の数字で入力してください。");
   }
 
   if (!participantName) {

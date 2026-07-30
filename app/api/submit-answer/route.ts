@@ -8,6 +8,7 @@ import {
   validateAnswerElapsedMs
 } from "@/lib/answer";
 import { normalizeRoomCode, jsonError, toPositiveInteger } from "@/lib/http";
+import { isValidRoomCode } from "@/lib/room-code";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { hashParticipantToken } from "@/lib/tokens";
 
@@ -69,7 +70,11 @@ export async function POST(request: Request) {
   const answeredBeforeReveal = body.answeredBeforeReveal === true;
 
   if (!roomCode || !participantToken || !questionId) {
-    return jsonError("最終結果の送信に必要な情報が不足しています。");
+    return jsonError("解答結果の記録に必要な情報が不足しています。");
+  }
+
+  if (!isValidRoomCode(roomCode)) {
+    return answerError("ROOM_CODE_INVALID", "ルーム番号は6桁の数字で指定してください。");
   }
 
   if (!isFinalStatus(body.finalStatus)) {
@@ -180,11 +185,11 @@ export async function POST(request: Request) {
     .limit(1);
 
   if (existingSubmissionError) {
-    return jsonError("最終結果の確認に失敗しました。", 500);
+    return jsonError("解答済みか確認できませんでした。", 500);
   }
 
   if (existingSubmissions?.[0]) {
-    return answerError("DUPLICATE_ANSWER", "この問題には最終結果を送信済みです。", 409);
+    return answerError("DUPLICATE_ANSWER", "この問題への解答は完了しています。", 409);
   }
 
   const { data: answerAliases } = await supabase
@@ -200,7 +205,7 @@ export async function POST(request: Request) {
     Boolean(finalAnswer) && normalizedCorrectAnswers.has(normalizedSubmittedAnswer);
 
   if ((body.finalStatus === "correct" || body.isCorrect === true) && !serverJudgedCorrect) {
-    return answerError("ANSWER_INCORRECT", "最終解答をサーバーで正解と確認できませんでした。", 422);
+    return answerError("ANSWER_INCORRECT", "送信した解答をサーバーで正解と確認できませんでした。", 422);
   }
 
   const finalStatus = body.finalStatus;
@@ -232,9 +237,9 @@ export async function POST(request: Request) {
 
   if (submissionError || !submission) {
     if (submissionError?.code === "23505") {
-      return answerError("DUPLICATE_ANSWER", "この問題には最終結果を送信済みです。", 409);
+      return answerError("DUPLICATE_ANSWER", "この問題への解答は完了しています。", 409);
     }
-    return jsonError("最終結果の保存に失敗しました。", 500);
+    return jsonError("解答結果の保存に失敗しました。", 500);
   }
 
   let awardedPoints = 0;
@@ -287,6 +292,6 @@ export async function POST(request: Request) {
         : `正解です。${awardedPoints}点を獲得しました。`
       : finalStatus === "timeout"
         ? "タイムアップとして記録しました。"
-        : "解答回数の上限到達として記録しました。"
+        : "不正解です。解答回数の上限に達しました。"
   });
 }

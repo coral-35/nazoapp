@@ -4,9 +4,14 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { formatElapsedTime, normalizeAnswer, sha256Hex } from "@/lib/answer";
+import {
+  finalStatusMessage,
+  formatAttemptLog,
+  type ParticipantFinalStatus
+} from "@/lib/participant-answer-feedback";
 import { participantStorageKey } from "@/lib/participant-storage";
 
-type FinalStatus = "correct" | "timeout" | "attempt_limit_exceeded";
+type FinalStatus = ParticipantFinalStatus;
 type SessionStatus = "ready" | "active" | "completed" | "submitting" | "submitted";
 
 type LocalAttempt = {
@@ -107,16 +112,6 @@ function readQuestionSession(key: string): LocalQuestionSession | null {
   }
 }
 
-function finalStatusMessage(finalStatus: FinalStatus | undefined) {
-  if (finalStatus === "correct") {
-    return "正解です。";
-  }
-  if (finalStatus === "timeout") {
-    return "タイムアップです。";
-  }
-  return "解答回数の上限に達しました。";
-}
-
 export default function PlayPage() {
   const params = useParams<{ roomCode: string }>();
   const roomCode = useMemo(() => String(params.roomCode || "").toUpperCase(), [params.roomCode]);
@@ -201,7 +196,9 @@ export default function PlayPage() {
       commitSession(completed);
       setRemainingMs(Math.max(0, current.timeLimitMs - answerElapsedMs));
       setMessage(finalStatusMessage(finalStatus));
-      setMessageType(finalStatus === "correct" ? "success" : "notice");
+      setMessageType(
+        finalStatus === "correct" ? "success" : finalStatus === "timeout" ? "notice" : "error"
+      );
     },
     [commitSession]
   );
@@ -399,7 +396,6 @@ export default function PlayPage() {
           answerElapsedMs: current.answerElapsedMs,
           attemptCount: current.attemptCount,
           maxAttempts: current.maxAttempts,
-          attempts: current.attempts,
           answeredBeforeReveal: current.answeredBeforeReveal,
           clientStartedAt: current.startedAtWallMs
             ? new Date(current.startedAtWallMs).toISOString()
@@ -411,17 +407,23 @@ export default function PlayPage() {
       });
       const data = await response.json();
       if (!response.ok && data.error !== "DUPLICATE_ANSWER") {
-        throw new Error(data.message || data.error || "最終結果の送信に失敗しました。");
+        throw new Error(data.message || data.error || "解答結果を記録できませんでした。");
       }
 
       retryAfterRef.current = 0;
       commitSession({ ...current, status: "submitted", resultSubmitted: true });
       setMessage(
         data.error === "DUPLICATE_ANSWER"
-          ? data.message || "この問題の最終結果は送信済みです。"
+          ? data.message || "この問題への解答は完了しています。"
           : data.message || finalStatusMessage(current.finalStatus)
       );
-      setMessageType(current.finalStatus === "correct" ? "success" : "notice");
+      setMessageType(
+        current.finalStatus === "correct"
+          ? "success"
+          : current.finalStatus === "timeout"
+            ? "notice"
+            : "error"
+      );
       try {
         await loadState(saved.participantToken);
       } catch {
@@ -430,7 +432,7 @@ export default function PlayPage() {
     } catch (caught) {
       retryAfterRef.current = Date.now() + 3000;
       commitSession({ ...current, status: "completed", resultSubmitted: false });
-      setMessage(caught instanceof Error ? caught.message : "最終結果の送信に失敗しました。");
+      setMessage(caught instanceof Error ? caught.message : "解答結果を記録できませんでした。");
       setMessageType("error");
     } finally {
       submitLockedRef.current = false;
@@ -697,18 +699,27 @@ export default function PlayPage() {
                   <div className="answer-result-area" aria-live="polite">
                     {session?.finalStatus ? (
                       <div
-                        className={`message ${session.finalStatus === "correct" ? "success" : "notice"}`}
+                        className={`message ${
+                          session.finalStatus === "correct"
+                            ? "success"
+                            : session.finalStatus === "timeout"
+                              ? "notice"
+                              : "error"
+                        }`}
                       >
                         {finalStatusMessage(session.finalStatus)}
                         {session.answeredBeforeReveal ? " 画像表示前に正解しました。" : ""}
-                        {session.status === "submitting"
-                          ? " 最終結果を送信中です。"
-                          : session.status === "completed"
-                            ? " 最終結果を再送します。"
-                            : " 最終結果を送信しました。"}
                       </div>
                     ) : playState.hasSubmission ? (
-                      <div className="message notice">この問題の最終結果は送信済みです。</div>
+                      <div
+                        className={`message ${
+                          playState.hasCorrectSubmission ? "success" : "notice"
+                        }`}
+                      >
+                        {playState.hasCorrectSubmission
+                          ? "正解です。"
+                          : "この問題への解答は終了しました。"}
+                      </div>
                     ) : playState.room.status === "question_closed" ? (
                       <div className="message notice">この問題は締め切られました。</div>
                     ) : imageStatus === "error" && isReady ? (
@@ -719,6 +730,24 @@ export default function PlayPage() {
                       <div className={`message ${messageType}`}>{message}</div>
                     ) : null}
                   </div>
+
+                  {session?.attempts.length ? (
+                    <div className="attempt-log">
+                      <strong>解答ログ</strong>
+                      <ol className="attempt-log-list" aria-label="解答ログ">
+                        {session.attempts.map((attempt, index) => (
+                          <li
+                            className={`attempt-log-item ${
+                              attempt.isCorrect ? "correct" : "incorrect"
+                            }`}
+                            key={`${index}-${attempt.elapsedMs}`}
+                          >
+                            {formatAttemptLog(attempt, index)}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  ) : null}
                 </>
               )}
             </div>

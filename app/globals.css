@@ -336,6 +336,40 @@ input {
   min-height: 48px;
 }
 
+.attempt-log {
+  display: grid;
+  gap: 8px;
+}
+
+.attempt-log-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attempt-log-item {
+  border-left: 4px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #f5f7f9;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.attempt-log-item.correct {
+  border-left-color: var(--success);
+  background: #e7f4ec;
+  color: var(--success);
+}
+
+.attempt-log-item.incorrect {
+  border-left-color: var(--danger);
+  background: #f8e8e6;
+  color: var(--danger);
+}
+
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);

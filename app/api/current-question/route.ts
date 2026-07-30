@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { DEFAULT_MAX_ATTEMPTS, DEFAULT_QUESTION_TIME_LIMIT_MS } from "@/lib/answer";
 import { buildCorrectAnswerHashes } from "@/lib/answer-hash.server";
 import { normalizeRoomCode, jsonError } from "@/lib/http";
+import { isValidRoomCode } from "@/lib/room-code";
 import { getDisplayImageUrl } from "@/lib/question-images";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { hashParticipantToken } from "@/lib/tokens";
@@ -11,7 +12,7 @@ export async function GET(request: Request) {
   const roomCode = normalizeRoomCode(url.searchParams.get("room_code") || "");
   const participantToken = url.searchParams.get("participant_token") || "";
 
-  if (!roomCode || !participantToken) {
+  if (!isValidRoomCode(roomCode) || !participantToken) {
     return jsonError("ルーム番号と参加者情報が必要です。", 400);
   }
 
