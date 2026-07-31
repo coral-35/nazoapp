@@ -49,7 +49,7 @@ export default function AdminLoginPage() {
           <div>
             <span className="status waiting">出題者</span>
             <h1>ログイン</h1>
-            <p className="muted">Supabase Authで作成した出題者アカウントを使用します。</p>
+            <p className="muted">出題者アカウントでログインしてください。</p>
           </div>
 
           <form className="form" onSubmit={handleSubmit}>

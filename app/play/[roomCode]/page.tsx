@@ -10,6 +10,7 @@ import {
   type ParticipantFinalStatus
 } from "@/lib/participant-answer-feedback";
 import { participantStorageKey } from "@/lib/participant-storage";
+import { MAX_ANSWER_LENGTH } from "@/lib/input-limits";
 
 type FinalStatus = ParticipantFinalStatus;
 type SessionStatus = "ready" | "active" | "completed" | "submitting" | "submitted";
@@ -608,7 +609,7 @@ export default function PlayPage() {
             <div className="score">
               <div>
                 <div>{playState.participant.name}</div>
-                <div className="muted">Room {playState.room.roomCode}</div>
+                <div className="muted">ルーム {playState.room.roomCode}</div>
               </div>
               <div>
                 <span>得点 </span>
@@ -662,9 +663,11 @@ export default function PlayPage() {
                         alt={`${playState.question.title}の問題画像`}
                       />
                     ) : imageRevealed ? (
-                      <div className="muted">問題画像が登録されていません。</div>
+                      <div className="muted">この問題には画像がありません。</div>
                     ) : (
-                      <div className="question-image-placeholder">画像はまだ非表示です</div>
+                      <div className="question-image-placeholder">
+                        開始すると問題画像が表示されます
+                      </div>
                     )}
                   </div>
 
@@ -690,6 +693,7 @@ export default function PlayPage() {
                         onChange={(event) => setAnswer(event.target.value)}
                         disabled={!canAnswer}
                         autoComplete="off"
+                        maxLength={MAX_ANSWER_LENGTH}
                       />
                     </label>
                     <button className="button" type="submit" disabled={!canAnswer}>

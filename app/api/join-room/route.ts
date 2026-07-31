@@ -4,6 +4,7 @@ import {
   getRequestDeviceIdentity
 } from "@/lib/device-identity.server";
 import { normalizeRoomCode, jsonError } from "@/lib/http";
+import { exceedsTextLimit, MAX_PARTICIPANT_NAME_LENGTH } from "@/lib/input-limits";
 import {
   buildJoinRoomResponse,
   type JoinParticipantRecord,
@@ -59,6 +60,10 @@ export async function POST(request: NextRequest) {
 
   if (!participantName) {
     return jsonError("参加者名を入力してください。");
+  }
+
+  if (exceedsTextLimit(participantName, MAX_PARTICIPANT_NAME_LENGTH)) {
+    return jsonError(`参加者名は${MAX_PARTICIPANT_NAME_LENGTH}文字以内で入力してください。`);
   }
 
   const supabase = getSupabaseAdmin();

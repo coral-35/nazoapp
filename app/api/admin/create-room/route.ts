@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { jsonError, logServerError } from "@/lib/http";
+import { exceedsTextLimit, MAX_ROOM_TITLE_LENGTH } from "@/lib/input-limits";
 import { requireAdminUser } from "@/lib/admin-auth";
 import { createRoomCode } from "@/lib/room-code.server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -20,6 +21,10 @@ export async function POST(request: Request) {
   const title = (body.title || "").trim();
   if (!title) {
     return jsonError("ルーム名を入力してください。");
+  }
+
+  if (exceedsTextLimit(title, MAX_ROOM_TITLE_LENGTH)) {
+    return jsonError(`ルーム名は${MAX_ROOM_TITLE_LENGTH}文字以内で入力してください。`);
   }
 
   try {

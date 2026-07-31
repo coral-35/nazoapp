@@ -1,4 +1,4 @@
-# 謎解き企画アプリ MVP
+# 謎解き企画アプリ
 
 ルーム参加型の謎解き企画用Webアプリです。参加者は6桁数字のルーム番号で参加し、準備後に問題を開始して、制限時間・解答可能回数の範囲でローカル判定を行います。参加者向けレスポンスには正答文字列ではなくSHA-256ハッシュだけを返し、最終結果はサーバー側でも再判定します。
 
@@ -40,7 +40,7 @@ LOCAL_ADMIN_PASSWORD=
 2. リモート環境ではAuthenticationで出題者用ユーザーを作成します。ローカル環境では後述のseedコマンドを使用します。
 3. SQL Editorで [supabase/schema.sql](supabase/schema.sql) を実行します。
    既存環境を更新する場合は [20260621000000_local_start_multi_attempt_hash.sql](supabase/migrations/20260621000000_local_start_multi_attempt_hash.sql)、続けて [20260622000000_answered_before_reveal.sql](supabase/migrations/20260622000000_answered_before_reveal.sql) を適用します。
-4. `question-images` Storageバケットが作成されます。MVPではAPIがservice roleでアップロードし、参加者へは現在問題の署名付きURLのみ返します。
+4. `question-images` Storageバケットが作成されます。APIがservice roleでアップロードし、参加者へは現在問題の署名付きURLのみ返します。
 5. `.env.local` にURL、anon key、service role keyを設定します。
 
 ### ローカルSupabase

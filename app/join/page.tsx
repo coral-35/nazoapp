@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { participantStorageKey, readStoredParticipant } from "@/lib/participant-storage";
+import { MAX_PARTICIPANT_NAME_LENGTH } from "@/lib/input-limits";
 import { isValidRoomCode } from "@/lib/room-code";
 
 export default function JoinPage() {
@@ -101,6 +102,7 @@ export default function JoinPage() {
                 value={participantName}
                 onChange={(event) => setParticipantName(event.target.value)}
                 autoComplete="name"
+                maxLength={MAX_PARTICIPANT_NAME_LENGTH}
                 required
               />
             </label>

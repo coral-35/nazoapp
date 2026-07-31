@@ -11,6 +11,11 @@ import {
   formatElapsedTime
 } from "@/lib/answer";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  MAX_ANSWER_LENGTH,
+  MAX_QUESTION_TITLE_LENGTH
+} from "@/lib/input-limits";
+import { questionStatusPresentation, roomStatusPresentation } from "@/lib/status-labels";
 
 type RoomDetail = {
   room: {
@@ -273,9 +278,6 @@ export default function AdminRoomDetailPage() {
           <Link className="brand" href="/admin/rooms">
             ルーム一覧
           </Link>
-          <Link className="link-button" href="/join">
-            参加画面
-          </Link>
         </div>
         <button className="button secondary" onClick={handleSignOut} type="button">
           ログアウト
@@ -291,7 +293,9 @@ export default function AdminRoomDetailPage() {
           <>
             <div className="panel stack">
               <div className="action-row">
-                <span className="status waiting">{detail.room.status}</span>
+                <span className={`status ${roomStatusPresentation(detail.room.status).tone}`}>
+                  {roomStatusPresentation(detail.room.status).label}
+                </span>
                 <h1>{detail.room.title}</h1>
               </div>
               <div>
@@ -311,6 +315,7 @@ export default function AdminRoomDetailPage() {
                         className="input"
                         value={questionTitle}
                         onChange={(event) => setQuestionTitle(event.target.value)}
+                        maxLength={MAX_QUESTION_TITLE_LENGTH}
                         required
                       />
                     </label>
@@ -329,6 +334,7 @@ export default function AdminRoomDetailPage() {
                           className="input"
                           value={answerText}
                           onChange={(event) => setAnswerText(event.target.value)}
+                          maxLength={MAX_ANSWER_LENGTH}
                           required
                         />
                       </label>
@@ -382,8 +388,10 @@ export default function AdminRoomDetailPage() {
                     {detail.questions.map((question) => (
                       <div className="card stack" key={question.id}>
                         <div className="action-row">
-                          <span className={`status ${question.status === "open" ? "open" : "waiting"}`}>
-                            {question.status}
+                          <span
+                            className={`status ${questionStatusPresentation(question.status).tone}`}
+                          >
+                            {questionStatusPresentation(question.status).label}
                           </span>
                           <strong>
                             第{question.order_index}問 {question.title}

@@ -7,6 +7,11 @@ import {
 } from "@/lib/answer";
 import { ensureRoomOwner, requireAdminUser } from "@/lib/admin-auth";
 import { jsonError, toPositiveInteger } from "@/lib/http";
+import {
+  exceedsTextLimit,
+  MAX_ANSWER_LENGTH,
+  MAX_QUESTION_TITLE_LENGTH
+} from "@/lib/input-limits";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 type CreateQuestionBody = {
@@ -47,6 +52,14 @@ export async function POST(request: Request) {
 
   if (!roomId || !title || !answerText) {
     return jsonError("ルーム、問題タイトル、正答を入力してください。");
+  }
+
+  if (exceedsTextLimit(title, MAX_QUESTION_TITLE_LENGTH)) {
+    return jsonError(`問題タイトルは${MAX_QUESTION_TITLE_LENGTH}文字以内で入力してください。`);
+  }
+
+  if (exceedsTextLimit(answerText, MAX_ANSWER_LENGTH)) {
+    return jsonError(`正答は${MAX_ANSWER_LENGTH}文字以内で入力してください。`);
   }
 
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > MAX_ALLOWED_ATTEMPTS) {

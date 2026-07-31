@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { adminFetch, getAdminAccessToken } from "@/lib/admin-client";
+import { MAX_ROOM_TITLE_LENGTH } from "@/lib/input-limits";
+import { roomStatusPresentation } from "@/lib/status-labels";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Room = {
@@ -125,7 +127,9 @@ export default function AdminRoomsPage() {
                 <Link className="card stack" href={`/admin/rooms/${room.id}`} key={room.id}>
                   <div className="action-row">
                     <strong>{room.title}</strong>
-                    <span className="status waiting">{room.status}</span>
+                    <span className={`status ${roomStatusPresentation(room.status).tone}`}>
+                      {roomStatusPresentation(room.status).label}
+                    </span>
                   </div>
                   <div>
                     <span className="muted">ルーム番号 </span>
@@ -145,6 +149,7 @@ export default function AdminRoomsPage() {
                   className="input"
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
+                  maxLength={MAX_ROOM_TITLE_LENGTH}
                   required
                 />
               </label>
