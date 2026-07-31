@@ -4,9 +4,42 @@ import {
   getRequestDeviceIdentity
 } from "@/lib/device-identity.server";
 import { normalizeRoomCode, jsonError } from "@/lib/http";
+import {
+  buildJoinRoomResponse,
+  type JoinParticipantRecord,
+  type JoinRoomRecord
+} from "@/lib/join-room";
 import { isValidRoomCode } from "@/lib/room-code";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { createParticipantToken, hashParticipantToken } from "@/lib/tokens";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+async function resumeExistingParticipant(
+  supabase: SupabaseClient,
+  room: JoinRoomRecord,
+  participant: JoinParticipantRecord,
+  deviceIdentity: ReturnType<typeof getRequestDeviceIdentity>
+) {
+  const token = createParticipantToken();
+  const { data: resumedParticipant, error } = await supabase
+    .from("participants")
+    .update({ token_hash: hashParticipantToken(token) })
+    .eq("id", participant.id)
+    .select("id, name, total_score")
+    .single();
+
+  if (error || !resumedParticipant) {
+    return attachDeviceCookie(
+      jsonError("参加情報の復元に失敗しました。", 500),
+      deviceIdentity
+    );
+  }
+
+  return attachDeviceCookie(
+    NextResponse.json(buildJoinRoomResponse(room, resumedParticipant, token)),
+    deviceIdentity
+  );
+}
 
 export async function POST(request: NextRequest) {
   let body: { roomCode?: string; participantName?: string };
@@ -46,20 +79,16 @@ export async function POST(request: NextRequest) {
   const deviceIdentity = getRequestDeviceIdentity(request);
   const { data: existingDeviceParticipant } = await supabase
     .from("participants")
-    .select("id")
+    .select("id, name, total_score")
     .eq("room_id", room.id)
     .eq("device_token_hash", deviceIdentity.hash)
     .maybeSingle();
 
   if (existingDeviceParticipant) {
-    return attachDeviceCookie(
-      NextResponse.json(
-        {
-          code: "DEVICE_ALREADY_JOINED",
-          error: "この端末はすでにこのルームへ参加しています。"
-        },
-        { status: 409 }
-      ),
+    return resumeExistingParticipant(
+      supabase,
+      room,
+      existingDeviceParticipant,
       deviceIdentity
     );
   }
@@ -80,19 +109,15 @@ export async function POST(request: NextRequest) {
     if (participantError.code === "23505") {
       const { data: duplicateDeviceParticipant } = await supabase
         .from("participants")
-        .select("id")
+        .select("id, name, total_score")
         .eq("room_id", room.id)
         .eq("device_token_hash", deviceIdentity.hash)
         .maybeSingle();
       if (duplicateDeviceParticipant) {
-        return attachDeviceCookie(
-          NextResponse.json(
-            {
-              code: "DEVICE_ALREADY_JOINED",
-              error: "この端末はすでにこのルームへ参加しています。"
-            },
-            { status: 409 }
-          ),
+        return resumeExistingParticipant(
+          supabase,
+          room,
+          duplicateDeviceParticipant,
           deviceIdentity
         );
       }
@@ -102,20 +127,7 @@ export async function POST(request: NextRequest) {
   }
 
   return attachDeviceCookie(
-    NextResponse.json({
-      room: {
-        id: room.id,
-        roomCode: room.room_code,
-        title: room.title,
-        status: room.status
-      },
-      participant: {
-        id: participant.id,
-        name: participant.name,
-        totalScore: participant.total_score
-      },
-      participantToken: token
-    }),
+    NextResponse.json(buildJoinRoomResponse(room, participant, token)),
     deviceIdentity
   );
 }

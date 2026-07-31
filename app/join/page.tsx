@@ -42,11 +42,7 @@ export default function JoinPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.code === "DEVICE_ALREADY_JOINED"
-            ? "この端末はすでにこのルームへ参加しています。"
-            : data.error || "ルーム参加に失敗しました。"
-        );
+        throw new Error(data.error || "ルーム参加に失敗しました。");
       }
 
       localStorage.setItem(
