@@ -60,6 +60,27 @@ export function EventResults({ roomId, participantToken }: { roomId: string; par
   const title = selectedSet === null ? "総合結果" : `セット${selectedSet}の結果`;
   const hasMissingTime = ranked.some(row => row.result.missingTimeCount > 0);
 
+  const renderTabs = (position: "top" | "bottom") => (
+          <div className="result-tabs" role="tablist" aria-label={position === "top" ? "結果の集計範囲" : "ページ下部の集計範囲"}>
+            {tabs.map((set, index) => <button
+              key={set ?? "overall"} id={`result-tab-${position}-${set ?? "overall"}`} type="button" role="tab"
+              aria-selected={selectedSet === set} aria-controls="result-panel" tabIndex={selectedSet === set ? 0 : -1}
+              onClick={() => setSelectedSet(set)}
+              onKeyDown={event => {
+                let next: number;
+                if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
+                else if (event.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length;
+                else if (event.key === "Home") next = 0;
+                else if (event.key === "End") next = tabs.length - 1;
+                else return;
+                event.preventDefault();
+                setSelectedSet(tabs[next]);
+                document.getElementById(`result-tab-${position}-${tabs[next] ?? "overall"}`)?.focus();
+              }}
+            >{set === null ? "総合結果" : `セット${set}`}</button>)}
+          </div>
+  );
+
   return (
     <main className="app-shell results-page">
       <header className="topbar">
@@ -91,25 +112,8 @@ export function EventResults({ roomId, participantToken }: { roomId: string; par
             <div><strong>{data.setCount}</strong><span>セット</span></div>
             <div><strong>{data.questionCount}</strong><span>問題</span></div>
           </div>
-          <div className="result-tabs" role="tablist" aria-label="結果の集計範囲">
-            {tabs.map((set, index) => <button
-              key={set ?? "overall"} id={`result-tab-${set ?? "overall"}`} type="button" role="tab"
-              aria-selected={selectedSet === set} aria-controls="result-panel" tabIndex={selectedSet === set ? 0 : -1}
-              onClick={() => setSelectedSet(set)}
-              onKeyDown={event => {
-                let next: number;
-                if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
-                else if (event.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length;
-                else if (event.key === "Home") next = 0;
-                else if (event.key === "End") next = tabs.length - 1;
-                else return;
-                event.preventDefault();
-                setSelectedSet(tabs[next]);
-                document.getElementById(`result-tab-${tabs[next] ?? "overall"}`)?.focus();
-              }}
-            >{set === null ? "総合結果" : `セット${set}`}</button>)}
-          </div>
-          <section className="panel stack leaderboard" role="tabpanel" id="result-panel" aria-labelledby={`result-tab-${selectedSet ?? "overall"}`} tabIndex={0}>
+          {renderTabs("top")}
+          <section className="panel stack leaderboard" role="tabpanel" id="result-panel" aria-labelledby={`result-tab-top-${selectedSet ?? "overall"}`} tabIndex={0}>
             <div className="leaderboard-heading">
               <h2>{title}</h2>
               <span className="muted">最終更新 {updatedAt}</span>
@@ -130,6 +134,10 @@ export function EventResults({ roomId, participantToken }: { roomId: string; par
             </div> : <p className="muted">参加者はまだいません。</p>}
             <small className="muted">不正解・時間切れ・未回答のタイムは合計に含みません。タイムはミリ秒単位で比較しています。</small>
           </section>
+          <footer className="results-footer stack">
+            <div className="announcement-heading"><h2>結果発表</h2><p>{title}</p></div>
+            {renderTabs("bottom")}
+          </footer>
         </> : null}
       </section>
     </main>

@@ -486,55 +486,55 @@ tr:last-child td {
 
 /* Broadcast results board, scoped to the announcement screen. */
 .results-page {
-  background: radial-gradient(ellipse at 50% 0%, #243e83 0%, #101c40 40%, #080e21 100%);
-  color: #f4f7ff;
+  background: #faf9f6;
+  color: #17202a;
   min-height: 100vh;
 }
 .results-page .page { width: min(1440px, calc(100% - 48px)); gap: 24px; }
-.results-page .topbar { background: #090f24; border-color: #33436a; }
-.results-page .topbar .brand { color: #e0e8ff; }
-.results-page .muted { color: #b9c7e4; }
+.results-page .topbar { background: #ffffff; border-color: #d8d9dc; }
+.results-page .topbar .brand { color: #17202a; }
+.results-page .muted { color: #59616d; }
 .results-page .announcement-heading { text-align: center; padding: 24px 0 8px; }
-.results-page .results-eyebrow { color: #ffdb83; font-size: 0.9rem; }
+.results-page .results-eyebrow { color: #8a5b08; font-size: 0.9rem; }
 .results-page .announcement-heading h1 {
   font-size: clamp(3rem, 7vw, 6rem); font-weight: 900; letter-spacing: 0.15em;
-  color: #ffe6a1; text-shadow: 0 4px 0 #684423, 0 0 32px #dba54c55;
+  color: #17202a; text-shadow: none;
 }
 .winner-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 .winner-card {
-  padding: 26px; border: 2px solid #809bc4; border-radius: 16px;
-  background: linear-gradient(135deg, #243758, #101c36); text-align: center;
-  box-shadow: 0 12px 30px #0005; overflow-wrap: anywhere;
+  padding: 26px; border: 2px solid #d8d9dc; border-radius: 16px;
+  background: #ffffff; text-align: center;
+  box-shadow: none; overflow-wrap: anywhere;
 }
-.winner-card.winner-1 { border-color: #ffda79; background: linear-gradient(135deg, #665022, #29230f); }
-.winner-place { color: #d1def8; letter-spacing: 0.12em; font-weight: 800; }
+.winner-card.winner-1 { border-color: #bc8a2c; background: #fff6df; }
+.winner-place { color: #59616d; letter-spacing: 0.12em; font-weight: 800; }
 .winner-place strong { display: block; font-size: 3rem; line-height: 1.2; }
-.winner-1 .winner-place { color: #ffdb83; }
+.winner-1 .winner-place { color: #8a5b08; }
 .winner-card h2 { font-size: clamp(1.4rem, 2.5vw, 2.3rem); margin: 16px 0; line-height: 1.35; }
-.winner-score strong { font-size: clamp(3rem, 5vw, 5rem); line-height: 1.15; color: #ffdb83; }
+.winner-score strong { font-size: clamp(3rem, 5vw, 5rem); line-height: 1.15; color: #8a5b08; }
 .winner-score span { margin-left: 8px; font-weight: 700; }
-.winner-time { font-size: clamp(1.4rem, 2.5vw, 2.2rem); font-weight: 800; color: #88edff; font-variant-numeric: tabular-nums; }
+.winner-time { font-size: clamp(1.4rem, 2.5vw, 2.2rem); font-weight: 800; color: #155b73; font-variant-numeric: tabular-nums; }
 .results-page .results-stats { justify-content: center; gap: 60px; padding: 0; }
-.results-page .results-stats span { color: #b9c7e4; }
+.results-page .results-stats span { color: #59616d; }
 .results-page .result-tabs { justify-content: center; }
-.results-page .result-tabs button { background: #1a294b; color: #e4ecff; border-color: #52658c; font-size: 1.2rem; }
-.results-page .result-tabs button[aria-selected="true"] { background: #ffda79; color: #171b2b; border-color: #ffda79; }
-.results-page .leaderboard { background: #101b35; border: 1px solid #52658c; border-radius: 16px; }
-.results-page .leaderboard-heading h2 { font-size: clamp(1.8rem, 3vw, 2.8rem); color: #ffdf8d; }
-.results-page .table-wrap { border-color: #405478; }
+.results-page .result-tabs button { background: #ffffff; color: #17202a; border-color: #d8d9dc; font-size: 1.2rem; }
+.results-page .result-tabs button[aria-selected="true"] { background: #17202a; color: #fff; border-color: #bc8a2c; }
+.results-page .leaderboard { background: #ffffff; border: 1px solid #d8d9dc; border-radius: 16px; }
+.results-page .leaderboard-heading h2 { font-size: clamp(1.8rem, 3vw, 2.8rem); color: #17202a; }
+.results-page .table-wrap { border-color: #e0e1e4; }
 .results-page .results-table { background: transparent; }
-.results-page .results-table th, .results-page .results-table td { border-color: #405478; padding: 20px; }
-.results-page .results-table thead th { background: #273b65; color: #dce8ff; font-size: 1.05rem; }
-.results-page .results-table tbody tr { background: #142341; }
-.results-page .results-table tbody tr:nth-child(even) { background: #1b2b4b; }
-.results-page .results-table tbody .place-1 { background: linear-gradient(90deg, #56401c, #2a281c); }
-.results-page .results-table tbody .place-2 { background: #283c59; }
-.results-page .results-table tbody .place-3 { background: #3c2e2a; }
-.results-page .results-table tbody th { font-size: clamp(1.25rem, 2.1vw, 2rem); color: #fff; }
-.results-page .rank-number, .results-page .results-table td:nth-child(3) strong { font-size: clamp(1.8rem, 3vw, 3rem); color: #ffdf8d; }
-.results-page .rank-unit { color: #cad6ed; font-size: 1rem; }
-.results-page .result-time { font-size: clamp(1.3rem, 2.5vw, 2.5rem); color: #88edff; }
-.results-page .result-time small { font-size: 0.85rem; color: #b9c7e4; }
+.results-page .results-table th, .results-page .results-table td { border-color: #e0e1e4; padding: 20px; }
+.results-page .results-table thead th { background: #eeeef0; color: #36404d; font-size: 1.05rem; }
+.results-page .results-table tbody tr { background: #ffffff; }
+.results-page .results-table tbody tr:nth-child(even) { background: #f5f5f5; }
+.results-page .results-table tbody .place-1 { background: #fff6df; }
+.results-page .results-table tbody .place-2 { background: #edf1f5; }
+.results-page .results-table tbody .place-3 { background: #f7eee8; }
+.results-page .results-table tbody th { font-size: clamp(1.25rem, 2.1vw, 2rem); color: #17202a; }
+.results-page .rank-number, .results-page .results-table td:nth-child(3) strong { font-size: clamp(1.8rem, 3vw, 3rem); color: #17202a; }
+.results-page .rank-unit { color: #59616d; font-size: 1rem; }
+.results-page .result-time { font-size: clamp(1.3rem, 2.5vw, 2.5rem); color: #155b73; }
+.results-page .result-time small { font-size: 0.85rem; color: #59616d; }
 @media (max-width: 760px) {
   .results-page .page { width: calc(100% - 24px); }
   .winner-board { grid-template-columns: 1fr; gap: 12px; }
@@ -544,3 +544,9 @@ tr:last-child td {
   .results-page .result-tabs { justify-content: flex-start; }
   .results-page .results-table th, .results-page .results-table td { padding: 14px 10px; }
 }
+
+.results-footer { border-top: 2px solid #17202a; padding: 24px 0 32px; }
+.results-footer .announcement-heading { padding: 0; }
+.results-footer h2 { margin: 0; font-size: clamp(2rem, 4vw, 3.5rem); font-weight: 900; }
+.results-footer p { font-size: 1.3rem; font-weight: 700; }
+.results-page .panel { box-shadow: none; }
