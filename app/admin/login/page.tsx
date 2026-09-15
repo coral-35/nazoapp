@@ -2,11 +2,10 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { verifyAdminLogin } from "@/lib/admin-login";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function AdminLoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -19,7 +18,7 @@ export default function AdminLoginPage() {
 
     try {
       const supabase = getSupabaseBrowserClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password
       });
@@ -28,7 +27,10 @@ export default function AdminLoginPage() {
         throw new Error("メールアドレスまたはパスワードを確認してください。");
       }
 
-      router.push("/admin");
+      if (!data.session) throw new Error("ログイン情報を取得できませんでした。");
+      await verifyAdminLogin(data.session.access_token);
+      // Start a fresh navigation after the new session is persisted.
+      window.location.assign("/admin");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "ログインに失敗しました。");
     } finally {
