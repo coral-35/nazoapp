@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { adminFetch, getAdminAccessToken } from "@/lib/admin-client";
@@ -24,6 +24,17 @@ export function EventResults({ roomId, participantToken }: { roomId: string; par
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatedAt, setUpdatedAt] = useState("");
+  const [tabSelection, setTabSelection] = useState(0);
+  const hasData = data !== null;
+
+  useLayoutEffect(() => {
+    if (hasData) window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" });
+  }, [hasData, selectedSet, tabSelection]);
+
+  const selectTab = (set: number | null) => {
+    setSelectedSet(set);
+    setTabSelection(current => current + 1);
+  };
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -65,7 +76,7 @@ export function EventResults({ roomId, participantToken }: { roomId: string; par
             {tabs.map((set, index) => <button
               key={set ?? "overall"} id={`result-tab-${position}-${set ?? "overall"}`} type="button" role="tab"
               aria-selected={selectedSet === set} aria-controls="result-panel" tabIndex={selectedSet === set ? 0 : -1}
-              onClick={() => setSelectedSet(set)}
+              onClick={() => selectTab(set)}
               onKeyDown={event => {
                 let next: number;
                 if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
@@ -74,8 +85,8 @@ export function EventResults({ roomId, participantToken }: { roomId: string; par
                 else if (event.key === "End") next = tabs.length - 1;
                 else return;
                 event.preventDefault();
-                setSelectedSet(tabs[next]);
-                document.getElementById(`result-tab-${position}-${tabs[next] ?? "overall"}`)?.focus();
+                selectTab(tabs[next]);
+                document.getElementById(`result-tab-${position}-${tabs[next] ?? "overall"}`)?.focus({ preventScroll: true });
               }}
             >{set === null ? "総合結果" : `セット${set}`}</button>)}
           </div>
@@ -135,7 +146,17 @@ export function EventResults({ roomId, participantToken }: { roomId: string; par
             <small className="muted">不正解・時間切れ・未回答のタイムは合計に含みません。タイムはミリ秒単位で比較しています。</small>
           </section>
           <footer className="results-footer stack">
-            <div className="announcement-heading"><h2>結果発表</h2><p>{title}</p></div>
+            <div className="announcement-heading">
+              <h2>結果発表</h2>
+              <p>{data.room.title}</p>
+              <p className="muted">正解数が多い順 → 正解した問題の合計タイムが短い順</p>
+              <p className="footer-scope">{title}</p>
+            </div>
+            <div className="results-stats">
+              <div><strong>{data.scores.length}</strong><span>参加者</span></div>
+              <div><strong>{data.setCount}</strong><span>セット</span></div>
+              <div><strong>{data.questionCount}</strong><span>問題</span></div>
+            </div>
             {renderTabs("bottom")}
           </footer>
         </> : null}

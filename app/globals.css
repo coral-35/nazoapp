@@ -486,7 +486,7 @@ tr:last-child td {
 
 /* Broadcast results board, scoped to the announcement screen. */
 .results-page {
-  background: #faf9f6;
+  background: #fff;
   color: #17202a;
   min-height: 100vh;
 }
@@ -550,3 +550,28 @@ tr:last-child td {
 .results-footer h2 { margin: 0; font-size: clamp(2rem, 4vw, 3.5rem); font-weight: 900; }
 .results-footer p { font-size: 1.3rem; font-weight: 700; }
 .results-page .panel { box-shadow: none; }
+
+/* Leave a full viewport of announcement space below the last ranked row. */
+.results-page .results-footer {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(24px, 5vh, 56px);
+  padding: clamp(32px, 6vh, 72px) 0;
+  border-top: 0;
+}
+.results-page .results-footer h2 { font-size: clamp(3rem, 7vw, 7rem); }
+.results-page .results-footer .announcement-heading > p { font-size: clamp(1.1rem, 2vw, 2rem); }
+.results-page .results-footer .footer-scope { margin-top: 24px; font-size: clamp(1.5rem, 3vw, 3rem); }
+.results-page .results-stats strong { font-size: clamp(3rem, 5vw, 5rem); }
+.results-page .results-stats span { font-size: clamp(1rem, 1.5vw, 1.5rem); }
+.results-page .result-tabs button { font-size: clamp(1.1rem, 1.8vw, 1.8rem); padding: 16px 28px; }
+.results-page .results-table tbody th { font-size: clamp(1.5rem, 2.8vw, 2.8rem); }
+.results-page .rank-number, .results-page .results-table td:nth-child(3) strong { font-size: clamp(2.2rem, 4vw, 4rem); }
+.results-page .result-time { font-size: clamp(1.6rem, 3.3vw, 3.3rem); }
+@media (max-width: 760px) {
+  .results-page .results-stats { gap: 28px; }
+  .results-page .result-tabs button { padding: 12px 16px; }
+  .results-page .results-footer { gap: 24px; }
+}
