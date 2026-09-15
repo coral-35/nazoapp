@@ -2,7 +2,6 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { participantStorageKey, restoreStoredParticipant } from "@/lib/participant-storage";
 import { MAX_PARTICIPANT_NAME_LENGTH } from "@/lib/input-limits";
 
@@ -67,9 +66,6 @@ export default function JoinPage() {
   }
 
   return <main className="app-shell">
-    <header className="topbar">
-      <Link className="brand" href="/">謎解き企画アプリ</Link>
-    </header>
     <section className="narrow-page">
       <div className="panel stack">
         <div><span className="status waiting">エントリー</span><h1>名前を入力して参加</h1>

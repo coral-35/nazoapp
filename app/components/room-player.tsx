@@ -4,9 +4,8 @@ import { EventResults } from "@/app/components/event-results";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ResultsSummary } from "@/app/components/results-summary";
 import { CHOICE_KEYS, type Results } from "@/lib/results";
-import { formatElapsedTime, normalizeAnswer, sha256Hex } from "@/lib/answer";
+import { normalizeAnswer, sha256Hex } from "@/lib/answer";
 import {
   finalStatusMessage,
   formatAttemptLog,
@@ -578,9 +577,7 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
     !judging &&
     (session?.status === "ready" || (remainingMs ?? 0) > 0);
   const remainingAttempts = session ? Math.max(0, session.maxAttempts - session.attemptCount) : 0;
-  const displayedTimeMs = imageRevealed
-    ? Math.max(0, Math.round(remainingMs ?? session?.timeLimitMs ?? 0))
-    : playState?.question?.timeLimitMs ?? 0;
+
 
   if (playState?.room.showResults && saved) {
     return <EventResults roomId="default" participantToken={saved.participantToken} />;
@@ -588,12 +585,6 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
 
   return (
     <main className="app-shell">
-      <header className="topbar">
-        <Link className="brand" href="/">
-          謎解き企画アプリ
-        </Link>
-      </header>
-
       <section className="narrow-page stack">
         {loading ? <div className="panel">読み込み中...</div> : null}
 
@@ -609,16 +600,6 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
 
         {playState ? (
           <>
-            <div className="results-header">
-              <div>
-                <div>{playState.participant.name}</div>
-                <div className="muted">{playState.room.title}</div>
-              </div>
-              <div>
-                <ResultsSummary results={playState.participant.results} />
-              </div>
-            </div>
-
             <div className="panel stack">
               <div className="action-row">
                 <span
@@ -646,12 +627,6 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
                   <div>
                     <div className="muted">セット{playState.question.setNumber}・第{playState.question.orderIndex}問</div>
                     <h1>{playState.question.title}</h1>
-                  </div>
-                  <div
-                    className={`timer-row ${imageRevealed && displayedTimeMs <= 0 ? "timeout" : ""}`}
-                  >
-                    <span>{imageRevealed ? "残り時間" : "制限時間"}</span>
-                    <strong>{formatElapsedTime(displayedTimeMs)}</strong>
                   </div>
                   <div className="muted">
                     解答可能回数 {playState.question.maxAttempts}回 / 解答済み{" "}

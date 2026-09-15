@@ -70,7 +70,7 @@ export function EventResults({ roomId, participantToken }: { roomId: string; par
       </header>
       <section className="page stack">
         <div className="announcement-heading">
-          <span className="results-eyebrow">RESULTS</span>
+          <span className="results-eyebrow">QUIZ CHAMPIONSHIP · FINAL SCORE</span>
           <h1>結果発表</h1>
           {data ? <p>{data.room.title}</p> : null}
           <p className="muted">正解数が多い順 → 正解した問題の合計タイムが短い順</p>
@@ -78,6 +78,14 @@ export function EventResults({ roomId, participantToken }: { roomId: string; par
         {error ? <div className="message error" role="alert">{error}{data ? " 前回取得した結果を表示しています。" : ""}</div> : null}
         {loading && !data ? <div className="panel" role="status">結果を読み込み中…</div> : null}
         {data ? <>
+          {ranked.length > 0 ? <div className="winner-board" aria-label="上位の成績">
+            {ranked.slice(0, 3).map(row => <article className={`winner-card winner-${row.rank}`} key={row.id}>
+              <div className="winner-place">{row.rank === 1 ? "TOP RANK" : "RANK"} <strong>{row.rank}</strong></div>
+              <h2>{row.name}</h2>
+              <div className="winner-score"><strong>{row.result.correctCount}</strong><span>問正解</span></div>
+              <div className="winner-time">{row.result.missingTimeCount ? "タイム未記録あり" : displayTime(row.result.totalTimeMs)}</div>
+            </article>)}
+          </div> : null}
           <div className="results-stats">
             <div><strong>{data.scores.length}</strong><span>参加者</span></div>
             <div><strong>{data.setCount}</strong><span>セット</span></div>
