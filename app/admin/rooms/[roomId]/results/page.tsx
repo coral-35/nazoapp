@@ -71,7 +71,7 @@ export default function ResultsPage() {
         <div className="announcement-heading">
           <span className="results-eyebrow">RESULTS</span>
           <h1>結果発表</h1>
-          {data ? <p>{data.room.title} <span className="muted">/ ルーム {data.room.room_code}</span></p> : null}
+          {data ? <p>{data.room.title}</p> : null}
           <p className="muted">正解数が多い順 → 正解した問題の合計タイムが短い順</p>
         </div>
         {error ? <div className="message error" role="alert">{error}{data ? " 前回取得した結果を表示しています。" : ""}</div> : null}

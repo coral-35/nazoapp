@@ -10,7 +10,8 @@
     "seed:admin:local": "node --env-file-if-exists=.env.local scripts/seed-local-admin.mjs",
     "supabase:start": "npx supabase start && npm run seed:admin:local",
     "supabase:reset": "npx supabase db reset --local && npm run seed:admin:local",
-    "seed:results:local": "node --env-file=.env.local scripts/seed-results-local.mjs"
+    "seed:results:local": "node --env-file=.env.local scripts/seed-results-local.mjs",
+    "prepare:entry:local": "node --env-file=.env.local scripts/prepare-entry-local.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.108.2",

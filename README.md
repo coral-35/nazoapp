@@ -157,3 +157,29 @@ npm run seed:results:local
 # 3000番でアプリを起動している場合
 QUIZ_TEST_ORIGIN=http://127.0.0.1:3000 node --env-file=.env.local scripts/test-sample-results-local.mjs
 ```
+
+## 実験ブランチ：番号なしの既定ルーム参加
+
+`experiment/default-room-entry` では、トップページ `/` を開くと `/join` に移動し、名前だけで既定ルームへ参加できます。参加後のURLは `/play` です。画面上のルーム番号入力・表示は省き、内部DBの識別情報と旧API・旧 `/play/[roomCode]` は互換性のため保持します。
+
+- 同じブラウザーに既定ルームの参加情報が保存されていれば、有効性をサーバーで確認して `/play` へ直接移動します。
+- 無効な参加トークンは破棄して名前入力に戻ります。通信エラーではキャッシュを残し、再試行できます。
+- 別ルームのキャッシュは使用しません。既定ルームが未準備ならエラーを表示します。
+- 未設定時の既定ルームは50人のサンプルルームです。切り替える場合は `.env.local` の `DEFAULT_ROOM_ID` に対象ルームのUUIDを設定し、アプリを再起動してください。管理画面で新しいルームを作っても既定ルームは自動変更されません。
+- 参加者を受け入れるにはルームを受付可能な状態にする必要があります。サンプルは次のコマンドで受付開始できます（解答記録は保持）。
+
+```bash
+# サンプル未作成時のみ先に実行
+npm run seed:results:local
+# 完了状態のサンプルを参加受付中へ変更
+npm run prepare:entry:local
+npm run dev
+```
+
+参加者は `http://localhost:3000` から入ります。既存のサンプル参加者50人に加えて、新しい名前で参加するたびに参加者が追加されます。サンプル問題を出す場合は出題者ログインから既定ルームの問題を開始してください。
+
+参加導線のローカルAPI検証（一時参加者は終了時に削除）:
+
+```bash
+QUIZ_TEST_ORIGIN=http://127.0.0.1:3000 node --env-file=.env.local scripts/test-default-entry-local.mjs
+```

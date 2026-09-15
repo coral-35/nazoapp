@@ -1,3 +1,4 @@
+import { defaultRoomId } from "@/lib/default-room";
 import { NextRequest, NextResponse } from "next/server";
 import {
   attachDeviceCookie,
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
   const roomCode = normalizeRoomCode(body.roomCode || "");
   const participantName = (body.participantName || "").trim();
 
-  if (!isValidRoomCode(roomCode)) {
+  if (body.roomCode !== undefined && !isValidRoomCode(roomCode)) {
     return jsonError("ルーム番号は6桁の数字で入力してください。");
   }
 
@@ -67,11 +68,10 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = getSupabaseAdmin();
-  const { data: room, error: roomError } = await supabase
-    .from("rooms")
-    .select("id, room_code, title, status")
-    .eq("room_code", roomCode)
-    .single();
+  const roomQuery = supabase.from("rooms").select("id, room_code, title, status");
+  const { data: room, error: roomError } = await (body.roomCode === undefined
+    ? roomQuery.eq("id", defaultRoomId())
+    : roomQuery.eq("room_code", roomCode)).single();
 
   if (roomError || !room) {
     return jsonError("指定されたルームが見つかりません。", 404);

@@ -132,10 +132,7 @@ export default function AdminRoomsPage() {
                       {roomStatusPresentation(room.status).label}
                     </span>
                   </div>
-                  <div>
-                    <span className="muted">ルーム番号 </span>
-                    <span className="room-code">{room.room_code}</span>
-                  </div>
+
                 </Link>
               ))}
             </div>

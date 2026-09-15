@@ -323,10 +323,7 @@ export default function AdminRoomDetailPage() {
                 <button className="button secondary" type="button" onClick={saveSetSize} disabled={saving}>セット設定を保存</button>
                 <button className="button secondary" type="button" onClick={() => token && void loadDetail(token).catch(() => setError("成績を更新できませんでした。"))}>成績を更新</button>
               </div>
-              <div>
-                <span className="muted">参加者へ共有するルーム番号 </span>
-                <span className="room-code">{detail.room.room_code}</span>
-              </div>
+
             </div>
 
             <div className="dashboard-grid">
