@@ -1,5 +1,6 @@
 "use client";
 
+import { EventResults } from "@/app/components/event-results";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -46,6 +47,7 @@ type LocalQuestionSession = {
 
 type PlayState = {
   room: {
+    showResults: boolean;
     roomCode: string;
     title: string;
     status: string;
@@ -579,6 +581,10 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
   const displayedTimeMs = imageRevealed
     ? Math.max(0, Math.round(remainingMs ?? session?.timeLimitMs ?? 0))
     : playState?.question?.timeLimitMs ?? 0;
+
+  if (playState?.room.showResults && saved) {
+    return <EventResults roomId="default" participantToken={saved.participantToken} />;
+  }
 
   return (
     <main className="app-shell">

@@ -322,3 +322,5 @@ alter table public.questions add column if not exists mode text not null default
 alter table public.questions drop constraint if exists questions_choice_answer_check;
 alter table public.questions add constraint questions_choice_answer_check
   check (mode <> 'multiple_choice' or answer_text in ('A', 'B', 'C', 'D'));
+
+alter table public.event_settings add column if not exists show_results boolean not null default false;

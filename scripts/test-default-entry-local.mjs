@@ -1,3 +1,4 @@
+import { createClient } from "@supabase/supabase-js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -5,7 +6,10 @@ import { readLocalAdminConfig } from "./seed-local-admin.mjs";
 import { SAMPLE_DEFAULT_ROOM_ID } from "../lib/default-room.ts";
 import { restoreStoredParticipant } from "../lib/participant-storage.ts";
 
-readLocalAdminConfig();
+const config = readLocalAdminConfig();
+const db = createClient(config.supabaseUrl, config.serviceRoleKey, { auth: { persistSession: false } });
+const { data: auth, error: loginError } = await db.auth.signInWithPassword({ email: config.email, password: config.password });
+assert.equal(loginError, null);
 const origin = process.env.QUIZ_TEST_ORIGIN || "http://127.0.0.1:3101";
 assert.ok(["localhost", "127.0.0.1"].includes(new URL(origin).hostname));
 const home = await fetch(origin, { redirect: "manual" });
@@ -45,6 +49,27 @@ try {
   assert.equal(store.removed, true);
   saved.participantToken = sameParticipant.participantToken;
   assert.deepEqual(await restoreStoredParticipant(store, destination.roomCode, validate), saved);
+  const resultUrl = `${origin}/api/results?participant_token=${encodeURIComponent(saved.participantToken)}`;
+  const settings = await (await fetch(`${origin}/api/admin/event`, { headers: { Authorization: `Bearer ${auth.session.access_token}` } })).json();
+  const originalDisplay = settings.room.show_results;
+  const toggle = async showResults => {
+    const response = await fetch(`${origin}/api/admin/event`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.session.access_token}` }, body: JSON.stringify({ showResults }) });
+    assert.equal(response.status, 200);
+  };
+  try {
+    assert.equal((await fetch(`${origin}/api/admin/event`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ showResults: true }) })).status, 401);
+    await toggle(false);
+    assert.equal((await fetch(resultUrl, { headers: { Cookie: cookie } })).status, 403);
+    await toggle(true);
+    const published = await fetch(resultUrl, { headers: { Cookie: cookie } });
+    assert.equal(published.status, 200);
+    assert.equal((await published.json()).scores.length, settings.participants.length);
+    assert.equal((await fetch(`${origin}/api/results`)).status, 400);
+    const state = await (await fetch(`${origin}/api/current-question?${new URLSearchParams({ room_code: destination.roomCode, participant_token: saved.participantToken })}`, { headers: { Cookie: cookie } })).json();
+    assert.equal(state.room.showResults, true);
+    await toggle(false);
+    assert.equal((await fetch(resultUrl, { headers: { Cookie: cookie } })).status, 403);
+  } finally { await toggle(originalDisplay); }
   const play = await fetch(`${origin}/play`, { headers: { Cookie: cookie } });
   assert.equal(play.status, 200);
   console.log("PASS: home redirect, name-only entry, default sample, valid cache, expired cache, device recovery, /play response");

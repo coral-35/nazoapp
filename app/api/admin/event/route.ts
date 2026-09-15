@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   const supabase = getSupabaseAdmin();
   const { data: room, error: roomError } = await supabase
     .from("event_settings")
-    .select("id, room_code, title, status, current_question_id, questions_per_set, created_at")
+    .select("id, room_code, title, status, current_question_id, questions_per_set, show_results, created_at")
     .eq("id", roomId)
     .single();
 
@@ -82,9 +82,18 @@ export async function PATCH(request: Request) {
   if (!owner.ok) return jsonError(owner.message, owner.status);
   let body;
   try { body = await request.json(); } catch { return jsonError("リクエスト形式が正しくありません。"); }
-  const size = body?.questionsPerSet;
-  if (!Number.isInteger(size) || size < 1 || size > 1000) return jsonError("1セットの問題数は1〜1000の整数で指定してください。");
-  const { error } = await getSupabaseAdmin().from("event_settings").update({ questions_per_set: size }).eq("id", roomId);
+  const updates: { questions_per_set?: number; show_results?: boolean } = {};
+  if (body?.questionsPerSet !== undefined) {
+    const size = body.questionsPerSet;
+    if (!Number.isInteger(size) || size < 1 || size > 1000) return jsonError("1セットの問題数は1〜1000の整数で指定してください。");
+    updates.questions_per_set = size;
+  }
+  if (body?.showResults !== undefined) {
+    if (typeof body.showResults !== "boolean") return jsonError("結果表示設定が正しくありません。");
+    updates.show_results = body.showResults;
+  }
+  if (!Object.keys(updates).length) return jsonError("変更する設定がありません。");
+  const { error } = await getSupabaseAdmin().from("event_settings").update(updates).eq("id", roomId);
   if (error) return jsonError("セット設定を保存できませんでした。", 500);
   return NextResponse.json({ success: true });
 }

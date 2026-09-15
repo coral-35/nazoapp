@@ -27,6 +27,7 @@ type RoomDetail = {
     status: string;
     current_question_id: string | null;
     questions_per_set: number;
+    show_results: boolean;
   };
   questions: Question[];
   participants: Participant[];
@@ -98,6 +99,7 @@ export function EventManager({ roomId }: { roomId: string }) {
       const response = await adminFetch("/api/admin/event", accessToken, {
         cache: "no-store"
       });
+      if (response.status === 401 || response.status === 403) { router.replace("/admin/login"); return; }
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || "イベント情報を取得できませんでした。");
@@ -105,7 +107,7 @@ export function EventManager({ roomId }: { roomId: string }) {
       setDetail(data);
       setQuestionsPerSet(data.room.questions_per_set);
     },
-    [roomId]
+    [roomId, router]
   );
 
   useEffect(() => {
@@ -232,6 +234,21 @@ export function EventManager({ roomId }: { roomId: string }) {
     await loadDetail(token);
   }
 
+  async function switchResults(showResults: boolean) {
+    if (!token) return;
+    setSaving(true);
+    setError("");
+    try {
+      const response = await adminFetch("/api/admin/event", token, { method: "PATCH", body: JSON.stringify({ showResults }) });
+      if (response.status === 401 || response.status === 403) { router.replace("/admin/login"); return; }
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "表示を切り替えられませんでした。");
+      await loadDetail(token);
+      setNotice(showResults ? "参加者画面を結果発表に切り替えました。" : "参加者画面を通常表示に戻しました。");
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "表示切り替えに失敗しました。"); }
+    finally { setSaving(false); }
+  }
+
   async function saveSetSize() {
     if (!token) return;
     setSaving(true);
@@ -316,7 +333,9 @@ export function EventManager({ roomId }: { roomId: string }) {
                 <h1>{detail.room.title}</h1>
               </div>
               <div className="action-row">
-                <Link className="button" href="/admin/results">結果発表画面を開く</Link>
+                <Link className="button" href="/admin/results" target="_blank">画面共有用の結果発表を開く</Link>
+                <button className="button secondary" type="button" disabled={saving} onClick={() => void switchResults(!detail.room.show_results)}>{detail.room.show_results ? "参加者画面を通常表示に戻す" : "参加者画面を結果発表に切り替える"}</button>
+                <span className="muted">参加者画面：{detail.room.show_results ? "結果発表" : "通常表示"}</span>
                 <label className="field"><span>1セットの問題数（保存すると過去の結果も再集計します）</span><input className="input" type="number" min={1} max={1000} value={questionsPerSet} onChange={event => setQuestionsPerSet(Number(event.target.value))} /></label>
                 <button className="button secondary" type="button" onClick={saveSetSize} disabled={saving}>セット設定を保存</button>
                 <button className="button secondary" type="button" onClick={() => token && void loadDetail(token).catch(() => setError("成績を更新できませんでした。"))}>成績を更新</button>

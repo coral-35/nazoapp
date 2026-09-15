@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   const deviceIdentity = getRequestDeviceIdentity(request);
   const { data: room, error: roomError } = await supabase
     .from("event_settings")
-    .select("id, room_code, title, status, current_question_id, questions_per_set")
+    .select("id, room_code, title, status, current_question_id, questions_per_set, show_results")
     .eq("room_code", roomCode)
     .single();
 
@@ -126,7 +126,8 @@ export async function GET(request: NextRequest) {
         id: room.id,
         roomCode: room.room_code,
         title: room.title,
-        status: room.status
+        status: room.status,
+        showResults: room.show_results
       },
       participant: {
         id: participant.id,

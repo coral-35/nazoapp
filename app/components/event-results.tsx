@@ -17,7 +17,7 @@ function displayTime(ms: number) {
   return `${(ms / 1000).toFixed(3)}秒`;
 }
 
-export function EventResults({ roomId }: { roomId: string }) {
+export function EventResults({ roomId, participantToken }: { roomId: string; participantToken?: string }) {
   const router = useRouter();
   const [data, setData] = useState<ResultsResponse | null>(null);
   const [selectedSet, setSelectedSet] = useState<number | null>(null);
@@ -29,11 +29,13 @@ export function EventResults({ roomId }: { roomId: string }) {
     setLoading(true);
     setError("");
     try {
-      const token = await getAdminAccessToken();
+      const token = participantToken ? null : await getAdminAccessToken();
       if (signal?.aborted) return;
-      if (!token) { router.replace("/admin/login"); return; }
-      const response = await adminFetch(`/api/admin/scores?roomId=${encodeURIComponent(roomId)}`, token, { cache: "no-store", signal });
-      if (response.status === 401) { router.replace("/admin/login"); return; }
+      if (!participantToken && !token) { router.replace("/admin/login"); return; }
+      const response = participantToken
+        ? await fetch(`/api/results?participant_token=${encodeURIComponent(participantToken)}`, { cache: "no-store", signal })
+        : await adminFetch(`/api/admin/scores?roomId=${encodeURIComponent(roomId)}`, token!, { cache: "no-store", signal });
+      if (response.status === 401 || (!participantToken && response.status === 403)) { router.replace(participantToken ? "/join" : "/admin/login"); return; }
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "結果を取得できませんでした。");
       if (signal?.aborted) return;
@@ -45,7 +47,7 @@ export function EventResults({ roomId }: { roomId: string }) {
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [roomId, router]);
+  }, [roomId, router, participantToken]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -61,7 +63,7 @@ export function EventResults({ roomId }: { roomId: string }) {
   return (
     <main className="app-shell results-page">
       <header className="topbar">
-        <Link className="brand" href="/admin">出題者管理へ戻る</Link>
+        {participantToken ? <span className="brand">結果発表</span> : <Link className="brand" href="/admin">出題者管理へ戻る</Link>}
         <button className="button secondary" type="button" onClick={() => void refresh()} disabled={loading}>
           {loading ? "更新中…" : "結果を更新"}
         </button>
