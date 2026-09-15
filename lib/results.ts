@@ -42,3 +42,25 @@ export function isValidQuestionMode(mode: unknown): mode is typeof QUESTION_MODE
 export function isChoiceAnswer(answer: string): boolean {
   return CHOICE_KEYS.some(key => key === answer);
 }
+
+export type ResultParticipant = Results & { id: string; name: string };
+
+export function rankResults(participants: ResultParticipant[], setNumber: number | null = null) {
+  const rows = participants.map(participant => ({
+    id: participant.id,
+    name: participant.name,
+    result: setNumber === null ? participant : participant.sets.find(set => set.setNumber === setNumber)
+      ?? { correctCount: 0, totalTimeMs: 0, missingTimeCount: 0 }
+  }));
+  // An unknown total cannot be compared as if the missing time were zero.
+  const time = (result: ResultTotals) => result.missingTimeCount ? Infinity : result.totalTimeMs;
+  rows.sort((a, b) => b.result.correctCount - a.result.correctCount
+    || time(a.result) - time(b.result)
+    || a.name.localeCompare(b.name, "ja") || a.id.localeCompare(b.id));
+  let rank = 0;
+  return rows.map((row, index) => {
+    const previous = rows[index - 1];
+    if (!previous || row.result.correctCount !== previous.result.correctCount || time(row.result) !== time(previous.result)) rank = index + 1;
+    return { ...row, rank };
+  });
+}

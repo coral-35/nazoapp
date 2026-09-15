@@ -318,6 +318,7 @@ export default function AdminRoomDetailPage() {
                 <h1>{detail.room.title}</h1>
               </div>
               <div className="action-row">
+                <Link className="button" href={`/admin/rooms/${roomId}/results`}>結果発表画面を開く</Link>
                 <label className="field"><span>1セットの問題数（保存すると過去の結果も再集計します）</span><input className="input" type="number" min={1} max={1000} value={questionsPerSet} onChange={event => setQuestionsPerSet(Number(event.target.value))} /></label>
                 <button className="button secondary" type="button" onClick={saveSetSize} disabled={saving}>セット設定を保存</button>
                 <button className="button secondary" type="button" onClick={() => token && void loadDetail(token).catch(() => setError("成績を更新できませんでした。"))}>成績を更新</button>

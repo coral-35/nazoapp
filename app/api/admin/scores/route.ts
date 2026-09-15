@@ -33,10 +33,15 @@ export async function GET(request: Request) {
     return jsonError("成績一覧の取得に失敗しました。", 500);
   }
 
-  const { data: room, error: roomError } = await supabase.from("rooms").select("questions_per_set").eq("id", roomId).single();
+  const { data: room, error: roomError } = await supabase.from("rooms").select("id, title, room_code, questions_per_set").eq("id", roomId).single();
   if (roomError || !room) return jsonError("ルーム情報を取得できませんでした。", 500);
   const resultsFor = await loadResults(roomId, room.questions_per_set);
   const scores = (data || []).map(p => ({ ...p, ...resultsFor(p.id) }));
   scores.sort((a, b) => b.correctCount - a.correctCount || a.missingTimeCount - b.missingTimeCount || a.totalTimeMs - b.totalTimeMs);
-  return NextResponse.json({ scores });
+  const { data: lastQuestion, count: questionCount, error: questionError } = await supabase
+    .from("questions").select("order_index", { count: "exact" }).eq("room_id", roomId)
+    .order("order_index", { ascending: false }).limit(1);
+  if (questionError) return jsonError("問題数を取得できませんでした。", 500);
+  return NextResponse.json({ scores, room, questionCount: questionCount || 0,
+    setCount: Math.ceil((lastQuestion?.[0]?.order_index || 0) / room.questions_per_set) });
 }
