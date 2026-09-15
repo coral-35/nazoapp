@@ -1,3 +1,4 @@
+import { loadResults } from "@/lib/results.server";
 import { NextResponse } from "next/server";
 import { ensureRoomOwner, requireAdminUser } from "@/lib/admin-auth";
 import { jsonError } from "@/lib/http";
@@ -23,7 +24,7 @@ export async function GET(request: Request, context: RouteContext) {
   const supabase = getSupabaseAdmin();
   const { data: room, error: roomError } = await supabase
     .from("rooms")
-    .select("id, room_code, title, status, current_question_id, created_at")
+    .select("id, room_code, title, status, current_question_id, questions_per_set, created_at")
     .eq("id", roomId)
     .single();
 
@@ -31,28 +32,30 @@ export async function GET(request: Request, context: RouteContext) {
     return jsonError("ルームが見つかりません。", 404);
   }
 
-  const [{ data: questions }, { data: participants }, { data: submissions }] =
+  const [{ data: questions, error: questionsError }, { data: participants, error: participantsError }, { data: submissions, error: submissionsError }] =
     await Promise.all([
       supabase
         .from("questions")
         .select(
-          "id, title, image_url, image_path, answer_text, points, time_limit_ms, max_attempts, order_index, status, created_at"
+          "id, title, image_url, image_path, answer_text, mode, time_limit_ms, max_attempts, order_index, status, created_at"
         )
         .eq("room_id", roomId)
         .order("order_index", { ascending: true }),
       supabase
         .from("participants")
-        .select("id, name, total_score, created_at")
+        .select("id, name, created_at")
         .eq("room_id", roomId)
         .order("created_at", { ascending: true }),
       supabase
         .from("submissions")
         .select(
-          "id, participant_id, question_id, submitted_answer, is_correct, awarded_points, answer_elapsed_ms, final_status, attempt_count, max_attempts_snapshot, final_answer, answered_before_reveal, server_received_at, created_at"
+          "id, participant_id, question_id, submitted_answer, is_correct, answer_elapsed_ms, final_status, attempt_count, max_attempts_snapshot, final_answer, answered_before_reveal, server_received_at, created_at"
         )
         .eq("room_id", roomId)
         .order("created_at", { ascending: false })
     ]);
+
+  if (questionsError || participantsError || submissionsError) return jsonError("ルーム詳細を取得できませんでした。", 500);
 
   const questionsWithSignedImages = await Promise.all(
     (questions || []).map(async (question) => ({
@@ -65,10 +68,26 @@ export async function GET(request: Request, context: RouteContext) {
     }))
   );
 
+  const resultsFor = await loadResults(roomId, room.questions_per_set);
   return NextResponse.json({
     room,
     questions: questionsWithSignedImages,
-    participants: participants || [],
+    participants: (participants || []).map(p => ({ ...p, results: resultsFor(p.id) })),
     submissions: submissions || []
   });
+}
+
+export async function PATCH(request: Request, context: RouteContext) {
+  const auth = await requireAdminUser(request);
+  if (!auth.ok) return jsonError(auth.message, auth.status);
+  const { roomId } = await context.params;
+  const owner = await ensureRoomOwner(roomId, auth.user.id);
+  if (!owner.ok) return jsonError(owner.message, owner.status);
+  let body;
+  try { body = await request.json(); } catch { return jsonError("リクエスト形式が正しくありません。"); }
+  const size = body?.questionsPerSet;
+  if (!Number.isInteger(size) || size < 1 || size > 1000) return jsonError("1セットの問題数は1〜1000の整数で指定してください。");
+  const { error } = await getSupabaseAdmin().from("rooms").update({ questions_per_set: size }).eq("id", roomId);
+  if (error) return jsonError("セット設定を保存できませんでした。", 500);
+  return NextResponse.json({ success: true });
 }

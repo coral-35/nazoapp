@@ -18,6 +18,7 @@ test("join response uses the persisted participant name when resuming", () => {
     "new-participant-token"
   );
 
+  assert.equal("totalScore" in response.participant, false);
   assert.equal(response.participant.name, "最初に入った名前");
   assert.equal(response.participantToken, "new-participant-token");
   assert.equal(response.room.roomCode, "123456");

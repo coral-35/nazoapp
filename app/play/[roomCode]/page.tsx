@@ -3,6 +3,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ResultsSummary } from "@/app/components/results-summary";
+import { CHOICE_KEYS, type Results } from "@/lib/results";
 import { formatElapsedTime, normalizeAnswer, sha256Hex } from "@/lib/answer";
 import {
   finalStatusMessage,
@@ -51,13 +53,14 @@ type PlayState = {
   participant: {
     id: string;
     name: string;
-    totalScore: number;
+    results: Results;
   };
   question: null | {
     id: string;
     title: string;
     imageUrl: string | null;
-    points: number;
+    mode: "normal" | "multiple_choice";
+    setNumber: number;
     orderIndex: number;
     timeLimitMs: number;
     maxAttempts: number;
@@ -503,7 +506,7 @@ export default function PlayPage() {
       return;
     }
     if (!submittedAnswer) {
-      setMessage("解答を入力してください。");
+      setMessage(question.mode === "multiple_choice" ? "A〜Dから解答を選択してください。" : "解答を入力してください。");
       setMessageType("error");
       return;
     }
@@ -606,14 +609,13 @@ export default function PlayPage() {
 
         {playState ? (
           <>
-            <div className="score">
+            <div className="results-header">
               <div>
                 <div>{playState.participant.name}</div>
                 <div className="muted">ルーム {playState.room.roomCode}</div>
               </div>
               <div>
-                <span>得点 </span>
-                <strong>{playState.participant.totalScore}</strong>
+                <ResultsSummary results={playState.participant.results} />
               </div>
             </div>
 
@@ -642,7 +644,7 @@ export default function PlayPage() {
               ) : (
                 <>
                   <div>
-                    <div className="muted">第{playState.question.orderIndex}問</div>
+                    <div className="muted">セット{playState.question.setNumber}・第{playState.question.orderIndex}問</div>
                     <h1>{playState.question.title}</h1>
                   </div>
                   <div
@@ -685,17 +687,22 @@ export default function PlayPage() {
                   </div>
 
                   <form className="form" onSubmit={handleAttempt}>
-                    <label className="field">
+                    <div className="field">
                       <span>解答</span>
-                      <input
+                      {playState.question.mode === "multiple_choice" ? (
+                        <div className="action-row" role="group" aria-label="4択の解答">
+                          {CHOICE_KEYS.map(choice => <button key={choice} type="button" className={`button ${answer === choice ? "" : "secondary"}`} aria-pressed={answer === choice} disabled={!canAnswer} onClick={() => setAnswer(choice)}>{choice}</button>)}
+                        </div>
+                      ) : <input
+                        aria-label="解答"
                         className="input"
                         value={answer}
                         onChange={(event) => setAnswer(event.target.value)}
                         disabled={!canAnswer}
                         autoComplete="off"
                         maxLength={MAX_ANSWER_LENGTH}
-                      />
-                    </label>
+                      />}
+                    </div>
                     <button className="button" type="submit" disabled={!canAnswer}>
                       {judging ? "判定中..." : "解答する"}
                     </button>

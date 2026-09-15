@@ -3,6 +3,8 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { ResultsSummary } from "@/app/components/results-summary";
+import { CHOICE_KEYS, type Results } from "@/lib/results";
 import { adminFetch, getAdminAccessToken } from "@/lib/admin-client";
 import {
   DEFAULT_MAX_ATTEMPTS,
@@ -24,6 +26,7 @@ type RoomDetail = {
     title: string;
     status: string;
     current_question_id: string | null;
+    questions_per_set: number;
   };
   questions: Question[];
   participants: Participant[];
@@ -35,7 +38,7 @@ type Question = {
   title: string;
   display_image_url: string | null;
   answer_text: string;
-  points: number;
+  mode: "normal" | "multiple_choice";
   time_limit_ms: number;
   max_attempts: number;
   order_index: number;
@@ -45,7 +48,7 @@ type Question = {
 type Participant = {
   id: string;
   name: string;
-  total_score: number;
+  results: Results;
   created_at: string;
 };
 
@@ -55,7 +58,7 @@ type Submission = {
   question_id: string;
   submitted_answer: string;
   is_correct: boolean;
-  awarded_points: number;
+  awarded_mode: "normal" | "multiple_choice";
   answer_elapsed_ms: number | null;
   final_status: "correct" | "timeout" | "attempt_limit_exceeded" | null;
   attempt_count: number;
@@ -83,7 +86,8 @@ export default function AdminRoomDetailPage() {
   const [saving, setSaving] = useState(false);
   const [questionTitle, setQuestionTitle] = useState("");
   const [answerText, setAnswerText] = useState("");
-  const [points, setPoints] = useState(10);
+  const [mode, setMode] = useState<"normal" | "multiple_choice">("normal");
+  const [questionsPerSet, setQuestionsPerSet] = useState(7);
   const [timeLimitSeconds, setTimeLimitSeconds] = useState(
     DEFAULT_QUESTION_TIME_LIMIT_MS / 1000
   );
@@ -101,6 +105,7 @@ export default function AdminRoomDetailPage() {
         throw new Error(data.error || "ルーム情報を取得できませんでした。");
       }
       setDetail(data);
+      setQuestionsPerSet(data.room.questions_per_set);
     },
     [roomId]
   );
@@ -183,7 +188,7 @@ export default function AdminRoomDetailPage() {
           roomId,
           title: questionTitle,
           answerText,
-          points,
+          mode,
           timeLimitMs: Math.max(1, Math.round(timeLimitSeconds)) * 1000,
           maxAttempts,
           imagePath: uploadedImage?.imagePath,
@@ -195,8 +200,8 @@ export default function AdminRoomDetailPage() {
         throw new Error(data.error || "問題登録に失敗しました。");
       }
       setQuestionTitle("");
-      setAnswerText("");
-      setPoints(10);
+      setAnswerText(mode === "multiple_choice" ? "A" : "");
+
       setTimeLimitSeconds(DEFAULT_QUESTION_TIME_LIMIT_MS / 1000);
       setMaxAttempts(DEFAULT_MAX_ATTEMPTS);
       setUploadedImage(null);
@@ -227,6 +232,20 @@ export default function AdminRoomDetailPage() {
     }
     setNotice("進行状態を更新しました。");
     await loadDetail(token);
+  }
+
+  async function saveSetSize() {
+    if (!token) return;
+    setSaving(true);
+    setError("");
+    try {
+      const response = await adminFetch(`/api/admin/rooms/${roomId}`, token, { method: "PATCH", body: JSON.stringify({ questionsPerSet }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "セット設定を保存できませんでした。");
+      await loadDetail(token);
+      setNotice("セット設定を保存しました。");
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "保存に失敗しました。"); }
+    finally { setSaving(false); }
   }
 
   async function handleSignOut() {
@@ -298,6 +317,11 @@ export default function AdminRoomDetailPage() {
                 </span>
                 <h1>{detail.room.title}</h1>
               </div>
+              <div className="action-row">
+                <label className="field"><span>1セットの問題数（保存すると過去の結果も再集計します）</span><input className="input" type="number" min={1} max={1000} value={questionsPerSet} onChange={event => setQuestionsPerSet(Number(event.target.value))} /></label>
+                <button className="button secondary" type="button" onClick={saveSetSize} disabled={saving}>セット設定を保存</button>
+                <button className="button secondary" type="button" onClick={() => token && void loadDetail(token).catch(() => setError("成績を更新できませんでした。"))}>成績を更新</button>
+              </div>
               <div>
                 <span className="muted">参加者へ共有するルーム番号 </span>
                 <span className="room-code">{detail.room.room_code}</span>
@@ -327,27 +351,18 @@ export default function AdminRoomDetailPage() {
                     {uploadedImage?.imageUrl ? (
                       <img className="question-preview" src={uploadedImage.imageUrl} alt="アップロード画像" />
                     ) : null}
+                    <label className="field"><span>問題モード</span><select className="input" value={mode} onChange={event => { const next = event.target.value as typeof mode; setMode(next); setAnswerText(next === "multiple_choice" ? "A" : ""); }}><option value="normal">通常（文字入力）</option><option value="multiple_choice">4択（A〜D）</option></select></label>
+                    {mode === "multiple_choice" ? <p className="muted">選択肢の内容は問題画像にA〜Dで記載してください。</p> : null}
                     <div className="split">
                       <label className="field">
                         <span>正答</span>
-                        <input
+                        {mode === "multiple_choice" ? <select className="input" value={answerText} onChange={event => setAnswerText(event.target.value)} required>{CHOICE_KEYS.map(choice => <option key={choice} value={choice}>{choice}</option>)}</select> : <input
                           className="input"
                           value={answerText}
                           onChange={(event) => setAnswerText(event.target.value)}
                           maxLength={MAX_ANSWER_LENGTH}
                           required
-                        />
-                      </label>
-                      <label className="field">
-                        <span>配点</span>
-                        <input
-                          className="input"
-                          type="number"
-                          min={1}
-                          value={points}
-                          onChange={(event) => setPoints(Number(event.target.value))}
-                          required
-                        />
+                        />}
                       </label>
                       <label className="field">
                         <span>制限時間（秒）</span>
@@ -394,7 +409,7 @@ export default function AdminRoomDetailPage() {
                             {questionStatusPresentation(question.status).label}
                           </span>
                           <strong>
-                            第{question.order_index}問 {question.title}
+                            セット{Math.ceil(question.order_index / detail.room.questions_per_set)}・第{question.order_index}問 {question.title}
                           </strong>
                         </div>
                         {question.display_image_url ? (
@@ -405,7 +420,7 @@ export default function AdminRoomDetailPage() {
                           />
                         ) : null}
                         <div className="muted">
-                          配点 {question.points} / 制限時間{" "}
+                          {question.mode === "multiple_choice" ? "4択（A〜D）" : "通常"} / 制限時間{" "}
                           {formatElapsedTime(question.time_limit_ms)} / 解答可能回数 {question.max_attempts}回 / 正答{" "}
                           {question.answer_text}
                         </div>
@@ -447,61 +462,15 @@ export default function AdminRoomDetailPage() {
 
               <div className="stack">
                 <div className="panel stack">
-                  <h2>参加者一覧</h2>
-                  <div className="table-wrap">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>名前</th>
-                          <th>得点</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detail.participants.map((participant) => (
-                          <tr key={participant.id}>
-                            <td>{participant.name}</td>
-                            <td>{participant.total_score}</td>
-                          </tr>
-                        ))}
-                        {detail.participants.length === 0 ? (
-                          <tr>
-                            <td colSpan={2}>参加者はいません。</td>
-                          </tr>
-                        ) : null}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="panel stack">
-                  <h2>得点一覧</h2>
-                  <div className="table-wrap">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>順位</th>
-                          <th>名前</th>
-                          <th>得点</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[...detail.participants]
-                          .sort((a, b) => b.total_score - a.total_score)
-                          .map((participant, index) => (
-                            <tr key={participant.id}>
-                              <td>{index + 1}</td>
-                              <td>{participant.name}</td>
-                              <td>{participant.total_score}</td>
-                            </tr>
-                          ))}
-                        {detail.participants.length === 0 ? (
-                          <tr>
-                            <td colSpan={3}>得点データはありません。</td>
-                          </tr>
-                        ) : null}
-                      </tbody>
-                    </table>
-                  </div>
+                  <h2>参加者の成績（総合・セット別）</h2>
+                  <p className="muted">総合の正解数が多い順、同数なら正解タイム合計が短い順です。タイム未記録がある成績は同正解数の記録済み成績の後に表示します。</p>
+                  {[...detail.participants].sort((a, b) => b.results.correctCount - a.results.correctCount || a.results.missingTimeCount - b.results.missingTimeCount || a.results.totalTimeMs - b.results.totalTimeMs).map((participant, index) => (
+                    <div className="card stack" key={participant.id}>
+                      <h3>{index + 1}. {participant.name}</h3>
+                      <ResultsSummary results={participant.results} />
+                    </div>
+                  ))}
+                  {detail.participants.length === 0 ? <p className="muted">参加者はいません。</p> : null}
                 </div>
 
                 <div className="panel stack">

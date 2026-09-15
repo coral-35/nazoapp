@@ -1,3 +1,4 @@
+import { loadResults } from "@/lib/results.server";
 import { NextRequest, NextResponse } from "next/server";
 import { DEFAULT_MAX_ATTEMPTS, DEFAULT_QUESTION_TIME_LIMIT_MS } from "@/lib/answer";
 import { buildCorrectAnswerHashes } from "@/lib/answer-hash.server";
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
   const deviceIdentity = getRequestDeviceIdentity(request);
   const { data: room, error: roomError } = await supabase
     .from("rooms")
-    .select("id, room_code, title, status, current_question_id")
+    .select("id, room_code, title, status, current_question_id, questions_per_set")
     .eq("room_code", roomCode)
     .single();
 
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
 
   const { data: participant, error: participantError } = await supabase
     .from("participants")
-    .select("id, name, total_score, device_token_hash")
+    .select("id, name, device_token_hash")
     .eq("room_id", room.id)
     .eq("token_hash", hashParticipantToken(participantToken))
     .single();
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
     const { data: currentQuestion } = await supabase
       .from("questions")
       .select(
-        "id, title, image_url, image_path, answer_text, points, order_index, status, time_limit_ms, max_attempts"
+        "id, title, image_url, image_path, answer_text, mode, order_index, status, time_limit_ms, max_attempts"
       )
       .eq("id", room.current_question_id)
       .eq("room_id", room.id)
@@ -72,20 +73,15 @@ export async function GET(request: NextRequest) {
         currentQuestion.image_url
       );
 
-      const [{ data: scoreEvent }, { data: submissions }, { data: answerAliases }] =
+      const [{ data: submissions }, { data: answerAliases }] =
         await Promise.all([
         supabase
-          .from("score_events")
-          .select("id")
-          .eq("participant_id", participant.id)
-          .eq("question_id", currentQuestion.id)
-          .maybeSingle(),
-        supabase
           .from("submissions")
-          .select("id")
+          .select("id, is_correct")
           .eq("room_id", room.id)
           .eq("participant_id", participant.id)
           .eq("question_id", currentQuestion.id)
+          .order("is_correct", { ascending: false })
           .limit(1),
         supabase
           .from("answer_aliases")
@@ -98,13 +94,14 @@ export async function GET(request: NextRequest) {
         ...(answerAliases || []).map((alias) => alias.alias_text)
       ]);
 
-      hasCorrectSubmission = Boolean(scoreEvent);
+      hasCorrectSubmission = Boolean(submissions?.some(row => row.is_correct));
       hasSubmission = Boolean(submissions?.[0]);
       question = {
         id: currentQuestion.id,
         title: currentQuestion.title,
         imageUrl,
-        points: currentQuestion.points,
+        mode: currentQuestion.mode,
+        setNumber: Math.ceil(currentQuestion.order_index / room.questions_per_set),
         orderIndex: currentQuestion.order_index,
         timeLimitMs: currentQuestion.time_limit_ms || DEFAULT_QUESTION_TIME_LIMIT_MS,
         maxAttempts: currentQuestion.max_attempts || DEFAULT_MAX_ATTEMPTS,
@@ -122,6 +119,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const resultsFor = await loadResults(room.id, room.questions_per_set, participant.id);
   return attachDeviceCookie(
     NextResponse.json({
       room: {
@@ -133,7 +131,7 @@ export async function GET(request: NextRequest) {
       participant: {
         id: participant.id,
         name: participant.name,
-        totalScore: participant.total_score
+        results: resultsFor(participant.id)
       },
       question,
       hasCorrectSubmission,

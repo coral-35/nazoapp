@@ -11,13 +11,15 @@ export async function POST(request: Request) {
     return jsonError(auth.message, auth.status);
   }
 
-  let body: { title?: string };
+  let body: { title?: string; questionsPerSet?: number };
   try {
     body = await request.json();
   } catch {
     return jsonError("リクエスト形式が正しくありません。");
   }
 
+  const questionsPerSet = body.questionsPerSet ?? 7;
+  if (!Number.isInteger(questionsPerSet) || questionsPerSet < 1 || questionsPerSet > 1000) return jsonError("1セットの問題数は1〜1000の整数で指定してください。");
   const title = (body.title || "").trim();
   if (!title) {
     return jsonError("ルーム名を入力してください。");
@@ -37,6 +39,7 @@ export async function POST(request: Request) {
         .insert({
           room_code: roomCode,
           title,
+          questions_per_set: questionsPerSet,
           status: "waiting",
           created_by: auth.user.id
         })

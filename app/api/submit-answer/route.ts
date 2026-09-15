@@ -1,3 +1,4 @@
+import { isChoiceAnswer } from "@/lib/results";
 import { NextRequest, NextResponse } from "next/server";
 import {
   ANSWER_GRACE_MS,
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
 
   const { data: participant, error: participantError } = await supabase
     .from("participants")
-    .select("id, room_id, total_score, device_token_hash")
+    .select("id, room_id, device_token_hash")
     .eq("room_id", room.id)
     .eq("token_hash", hashParticipantToken(participantToken))
     .single();
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
   const { data: question, error: questionError } = await supabase
     .from("questions")
     .select(
-      "id, room_id, answer_text, points, status, time_limit_ms, max_attempts"
+      "id, room_id, answer_text, mode, status, time_limit_ms, max_attempts"
     )
     .eq("id", questionId)
     .eq("room_id", room.id)
@@ -164,6 +165,10 @@ export async function POST(request: NextRequest) {
 
   if (question.status !== "open") {
     return answerError("QUESTION_NOT_ACTIVE", "この問題は現在回答受付中ではありません。", 409);
+  }
+
+  if (question.mode === "multiple_choice" && finalAnswer && !isChoiceAnswer(finalAnswer)) {
+    return answerError("ANSWER_INVALID", "4択の解答はA〜Dから選択してください。");
   }
 
   const timeLimitMs = toPositiveInteger(question.time_limit_ms, DEFAULT_QUESTION_TIME_LIMIT_MS);
@@ -255,54 +260,15 @@ export async function POST(request: NextRequest) {
     return jsonError("解答結果の保存に失敗しました。", 500);
   }
 
-  let awardedPoints = 0;
-  let totalScore = participant.total_score;
-  let alreadyScored = false;
-
-  if (isCorrect) {
-    const { error: scoreError } = await supabase.from("score_events").insert({
-      room_id: room.id,
-      participant_id: participant.id,
-      question_id: question.id,
-      points: question.points,
-      reason: "correct_answer"
-    });
-
-    if (!scoreError) {
-      awardedPoints = question.points;
-      await supabase.from("submissions").update({ awarded_points: awardedPoints }).eq("id", submission.id);
-
-      const { data: scoreRows, error: incrementError } = await supabase.rpc(
-        "increment_participant_score",
-        { target_participant_id: participant.id, delta: question.points }
-      );
-
-      if (!incrementError && Array.isArray(scoreRows) && scoreRows[0]) {
-        totalScore = Number(scoreRows[0].total_score);
-      } else {
-        totalScore = participant.total_score + question.points;
-      }
-    } else if (scoreError.code === "23505") {
-      alreadyScored = true;
-    } else {
-      return jsonError("得点処理に失敗しました。", 500);
-    }
-  }
-
   return NextResponse.json({
     success: true,
     result: finalStatus,
     finalStatus,
     isCorrect,
-    awardedPoints,
-    totalScore,
-    alreadyScored,
     answerElapsedMs: persistedElapsedMs,
     answeredBeforeReveal,
     message: isCorrect
-      ? alreadyScored
-        ? "正解済みです。得点は加算済みです。"
-        : `正解です。${awardedPoints}点を獲得しました。`
+      ? "正解です。正解数とタイムを記録しました。"
       : finalStatus === "timeout"
         ? "タイムアップとして記録しました。"
         : "不正解です。解答回数の上限に達しました。"

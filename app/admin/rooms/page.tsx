@@ -20,6 +20,7 @@ export default function AdminRoomsPage() {
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [questionsPerSet, setQuestionsPerSet] = useState(7);
   const [title, setTitle] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -76,7 +77,7 @@ export default function AdminRoomsPage() {
     try {
       const response = await adminFetch("/api/admin/create-room", token, {
         method: "POST",
-        body: JSON.stringify({ title })
+        body: JSON.stringify({ title, questionsPerSet })
       });
       const data = await response.json();
       if (!response.ok) {
@@ -153,6 +154,7 @@ export default function AdminRoomsPage() {
                   required
                 />
               </label>
+              <label className="field"><span>1セットの問題数</span><input className="input" type="number" min={1} max={1000} value={questionsPerSet} onChange={event => setQuestionsPerSet(Number(event.target.value))} required /></label>
               <button className="button" type="submit" disabled={creating || !token}>
                 {creating ? "作成中..." : "ルームを作成"}
               </button>

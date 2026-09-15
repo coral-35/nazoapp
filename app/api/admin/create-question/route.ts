@@ -1,3 +1,4 @@
+import { isValidQuestionMode, isChoiceAnswer } from "@/lib/results";
 import { NextResponse } from "next/server";
 import {
   DEFAULT_MAX_ATTEMPTS,
@@ -18,7 +19,7 @@ type CreateQuestionBody = {
   roomId?: string;
   title?: string;
   answerText?: string;
-  points?: number | string;
+  mode?: unknown;
   timeLimitMs?: number | string;
   maxAttempts?: number | string;
   imageUrl?: string;
@@ -41,7 +42,9 @@ export async function POST(request: Request) {
   const roomId = body.roomId || "";
   const title = (body.title || "").trim();
   const answerText = (body.answerText || "").trim();
-  const points = toPositiveInteger(body.points, 10);
+  const mode = body.mode ?? "normal";
+  if (!isValidQuestionMode(mode)) return jsonError("問題モードが正しくありません。");
+  if (mode === "multiple_choice" && !isChoiceAnswer(answerText)) return jsonError("4択の正答はA〜Dから選択してください。");
   const timeLimitMs = toPositiveInteger(body.timeLimitMs, DEFAULT_QUESTION_TIME_LIMIT_MS);
   const maxAttempts =
     body.maxAttempts === undefined || body.maxAttempts === ""
@@ -90,14 +93,14 @@ export async function POST(request: Request) {
       image_path: imagePath,
       answer_text: answerText,
       normalized_answer: normalizeAnswer(answerText),
-      points,
+      mode,
       time_limit_ms: timeLimitMs,
       max_attempts: maxAttempts,
       order_index: orderIndex,
       status: "draft"
     })
     .select(
-      "id, title, image_url, image_path, answer_text, points, time_limit_ms, max_attempts, order_index, status"
+      "id, title, image_url, image_path, answer_text, mode, time_limit_ms, max_attempts, order_index, status"
     )
     .single();
 

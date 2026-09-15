@@ -26,7 +26,7 @@ async function resumeExistingParticipant(
     .from("participants")
     .update({ token_hash: hashParticipantToken(token) })
     .eq("id", participant.id)
-    .select("id, name, total_score")
+    .select("id, name")
     .single();
 
   if (error || !resumedParticipant) {
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
   const deviceIdentity = getRequestDeviceIdentity(request);
   const { data: existingDeviceParticipant } = await supabase
     .from("participants")
-    .select("id, name, total_score")
+    .select("id, name")
     .eq("room_id", room.id)
     .eq("device_token_hash", deviceIdentity.hash)
     .maybeSingle();
@@ -107,14 +107,14 @@ export async function POST(request: NextRequest) {
       token_hash: hashParticipantToken(token),
       device_token_hash: deviceIdentity.hash
     })
-    .select("id, name, total_score")
+    .select("id, name")
     .single();
 
   if (participantError) {
     if (participantError.code === "23505") {
       const { data: duplicateDeviceParticipant } = await supabase
         .from("participants")
-        .select("id, name, total_score")
+        .select("id, name")
         .eq("room_id", room.id)
         .eq("device_token_hash", deviceIdentity.hash)
         .maybeSingle();

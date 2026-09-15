@@ -8,7 +8,6 @@ export type JoinRoomRecord = {
 export type JoinParticipantRecord = {
   id: string;
   name: string;
-  total_score: number;
 };
 
 export function buildJoinRoomResponse(
@@ -25,8 +24,7 @@ export function buildJoinRoomResponse(
     },
     participant: {
       id: participant.id,
-      name: participant.name,
-      totalScore: participant.total_score
+      name: participant.name
     },
     participantToken
   };

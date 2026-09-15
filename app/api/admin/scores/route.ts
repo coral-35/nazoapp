@@ -1,3 +1,4 @@
+import { loadResults } from "@/lib/results.server";
 import { NextResponse } from "next/server";
 import { ensureRoomOwner, requireAdminUser } from "@/lib/admin-auth";
 import { jsonError } from "@/lib/http";
@@ -24,14 +25,18 @@ export async function GET(request: Request) {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("participants")
-    .select("id, name, total_score, created_at")
+    .select("id, name, created_at")
     .eq("room_id", roomId)
-    .order("total_score", { ascending: false })
     .order("created_at", { ascending: true });
 
   if (error) {
-    return jsonError("得点一覧の取得に失敗しました。", 500);
+    return jsonError("成績一覧の取得に失敗しました。", 500);
   }
 
-  return NextResponse.json({ scores: data || [] });
+  const { data: room, error: roomError } = await supabase.from("rooms").select("questions_per_set").eq("id", roomId).single();
+  if (roomError || !room) return jsonError("ルーム情報を取得できませんでした。", 500);
+  const resultsFor = await loadResults(roomId, room.questions_per_set);
+  const scores = (data || []).map(p => ({ ...p, ...resultsFor(p.id) }));
+  scores.sort((a, b) => b.correctCount - a.correctCount || a.missingTimeCount - b.missingTimeCount || a.totalTimeMs - b.totalTimeMs);
+  return NextResponse.json({ scores });
 }

@@ -254,7 +254,8 @@ input {
   color: var(--muted);
 }
 
-.score {
+.results-header {
+  flex-wrap: wrap;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -265,8 +266,12 @@ input {
   color: #fff;
 }
 
-.score strong {
-  font-size: 2rem;
+.results-header strong {
+  font-size: 1.125rem;
+}
+
+.results-header .muted {
+  color: #ccdbe8;
 }
 
 .timer-row {

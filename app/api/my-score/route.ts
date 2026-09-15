@@ -1,3 +1,4 @@
+import { loadResults } from "@/lib/results.server";
 import { NextRequest, NextResponse } from "next/server";
 import {
   attachDeviceCookie,
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
   const deviceIdentity = getRequestDeviceIdentity(request);
   const { data: room } = await supabase
     .from("rooms")
-    .select("id")
+    .select("id, questions_per_set")
     .eq("room_code", roomCode)
     .single();
 
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
 
   const { data: participant, error } = await supabase
     .from("participants")
-    .select("id, name, total_score, device_token_hash")
+    .select("id, name, device_token_hash")
     .eq("room_id", room.id)
     .eq("token_hash", hashParticipantToken(participantToken))
     .single();
@@ -45,17 +46,13 @@ export async function GET(request: NextRequest) {
     return jsonError("この参加情報は別の端末に紐付いています。", 401);
   }
 
-  const { count: correctCount } = await supabase
-    .from("score_events")
-    .select("id", { count: "exact", head: true })
-    .eq("participant_id", participant.id);
+  const resultsFor = await loadResults(room.id, room.questions_per_set, participant.id);
 
   return attachDeviceCookie(
     NextResponse.json({
       participantId: participant.id,
       name: participant.name,
-      totalScore: participant.total_score,
-      correctCount: correctCount || 0
+      ...resultsFor(participant.id)
     }),
     deviceIdentity
   );
