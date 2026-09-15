@@ -1,0 +1,536 @@
+"use client";
+
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ResultsSummary } from "@/app/components/results-summary";
+import { CHOICE_KEYS, type Results } from "@/lib/results";
+import { adminFetch, getAdminAccessToken } from "@/lib/admin-client";
+import {
+  DEFAULT_MAX_ATTEMPTS,
+  DEFAULT_QUESTION_TIME_LIMIT_MS,
+  MAX_ALLOWED_ATTEMPTS,
+  formatElapsedTime
+} from "@/lib/answer";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  MAX_ANSWER_LENGTH,
+  MAX_QUESTION_TITLE_LENGTH
+} from "@/lib/input-limits";
+import { questionStatusPresentation, roomStatusPresentation } from "@/lib/status-labels";
+
+type RoomDetail = {
+  room: {
+    id: string;
+    room_code: string;
+    title: string;
+    status: string;
+    current_question_id: string | null;
+    questions_per_set: number;
+  };
+  questions: Question[];
+  participants: Participant[];
+  submissions: Submission[];
+};
+
+type Question = {
+  id: string;
+  title: string;
+  display_image_url: string | null;
+  answer_text: string;
+  mode: "normal" | "multiple_choice";
+  time_limit_ms: number;
+  max_attempts: number;
+  order_index: number;
+  status: string;
+};
+
+type Participant = {
+  id: string;
+  name: string;
+  results: Results;
+  created_at: string;
+};
+
+type Submission = {
+  id: string;
+  participant_id: string;
+  question_id: string;
+  submitted_answer: string;
+  is_correct: boolean;
+  awarded_mode: "normal" | "multiple_choice";
+  answer_elapsed_ms: number | null;
+  final_status: "correct" | "timeout" | "attempt_limit_exceeded" | null;
+  attempt_count: number;
+  max_attempts_snapshot: number | null;
+  final_answer: string | null;
+  answered_before_reveal: boolean;
+  server_received_at: string | null;
+  created_at: string;
+};
+
+type UploadedImage = {
+  imagePath: string;
+  imageUrl: string | null;
+};
+
+export function EventManager({ roomId }: { roomId: string }) {
+  const router = useRouter();
+  const [token, setToken] = useState<string | null>(null);
+  const [detail, setDetail] = useState<RoomDetail | null>(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [questionTitle, setQuestionTitle] = useState("");
+  const [answerText, setAnswerText] = useState("");
+  const [mode, setMode] = useState<"normal" | "multiple_choice">("normal");
+  const [questionsPerSet, setQuestionsPerSet] = useState(7);
+  const [timeLimitSeconds, setTimeLimitSeconds] = useState(
+    DEFAULT_QUESTION_TIME_LIMIT_MS / 1000
+  );
+  const [maxAttempts, setMaxAttempts] = useState(DEFAULT_MAX_ATTEMPTS);
+  const [uploadedImage, setUploadedImage] = useState<UploadedImage | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const loadDetail = useCallback(
+    async (accessToken: string) => {
+      const response = await adminFetch("/api/admin/event", accessToken, {
+        cache: "no-store"
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "イベント情報を取得できませんでした。");
+      }
+      setDetail(data);
+      setQuestionsPerSet(data.room.questions_per_set);
+    },
+    [roomId]
+  );
+
+  useEffect(() => {
+    let active = true;
+
+    async function init() {
+      try {
+        const accessToken = await getAdminAccessToken();
+        if (!accessToken) {
+          router.replace("/admin/login");
+          return;
+        }
+        if (active) {
+          setToken(accessToken);
+        }
+        await loadDetail(accessToken);
+      } catch (caught) {
+        if (active) {
+          setError(caught instanceof Error ? caught.message : "イベント情報を読み込めませんでした。");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    init();
+    return () => {
+      active = false;
+    };
+  }, [loadDetail, router]);
+
+  async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !token) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set("roomId", roomId);
+    formData.set("file", file);
+    setUploading(true);
+    setError("");
+
+    try {
+      const response = await adminFetch("/api/admin/upload-question-image", token, {
+        method: "POST",
+        body: formData
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "画像アップロードに失敗しました。");
+      }
+      setUploadedImage(data);
+      setNotice("画像をアップロードしました。");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "画像アップロードに失敗しました。");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleCreateQuestion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token) {
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const response = await adminFetch("/api/admin/create-question", token, {
+        method: "POST",
+        body: JSON.stringify({
+          roomId,
+          title: questionTitle,
+          answerText,
+          mode,
+          timeLimitMs: Math.max(1, Math.round(timeLimitSeconds)) * 1000,
+          maxAttempts,
+          imagePath: uploadedImage?.imagePath,
+          imageUrl: uploadedImage?.imageUrl
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "問題登録に失敗しました。");
+      }
+      setQuestionTitle("");
+      setAnswerText(mode === "multiple_choice" ? "A" : "");
+
+      setTimeLimitSeconds(DEFAULT_QUESTION_TIME_LIMIT_MS / 1000);
+      setMaxAttempts(DEFAULT_MAX_ATTEMPTS);
+      setUploadedImage(null);
+      setNotice("問題を登録しました。");
+      await loadDetail(token);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "問題登録に失敗しました。");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function runProgressAction(path: string, body: object, confirmText: string) {
+    if (!token || !window.confirm(confirmText)) {
+      return;
+    }
+
+    setError("");
+    setNotice("");
+    const response = await adminFetch(path, token, {
+      method: "POST",
+      body: JSON.stringify(body)
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setError(data.error || "操作に失敗しました。");
+      return;
+    }
+    setNotice("進行状態を更新しました。");
+    await loadDetail(token);
+  }
+
+  async function saveSetSize() {
+    if (!token) return;
+    setSaving(true);
+    setError("");
+    try {
+      const response = await adminFetch("/api/admin/event", token, { method: "PATCH", body: JSON.stringify({ questionsPerSet }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "セット設定を保存できませんでした。");
+      await loadDetail(token);
+      setNotice("セット設定を保存しました。");
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "保存に失敗しました。"); }
+    finally { setSaving(false); }
+  }
+
+  async function handleSignOut() {
+    const supabase = getSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    router.replace("/admin/login");
+  }
+
+  const participantNameById = new Map(
+    (detail?.participants || []).map((participant) => [participant.id, participant.name])
+  );
+  const questionTitleById = new Map(
+    (detail?.questions || []).map((question) => [question.id, question.title])
+  );
+  const rankedSubmissions = useMemo(() => {
+    const rows = detail?.room.current_question_id
+      ? (detail.submissions || []).filter(
+          (submission) => submission.question_id === detail.room.current_question_id
+        )
+      : detail?.submissions || [];
+
+    return [...rows].sort((a, b) => {
+      const aIsCorrect = a.final_status === "correct";
+      const bIsCorrect = b.final_status === "correct";
+      if (aIsCorrect !== bIsCorrect) {
+        return aIsCorrect ? -1 : 1;
+      }
+
+      const aElapsed = a.answer_elapsed_ms ?? Number.POSITIVE_INFINITY;
+      const bElapsed = b.answer_elapsed_ms ?? Number.POSITIVE_INFINITY;
+      if (aElapsed !== bElapsed) {
+        return aElapsed - bElapsed;
+      }
+
+      const aReceived = Date.parse(a.server_received_at || a.created_at);
+      const bReceived = Date.parse(b.server_received_at || b.created_at);
+      if (aReceived !== bReceived) {
+        return aReceived - bReceived;
+      }
+
+      return a.id.localeCompare(b.id);
+    });
+  }, [detail]);
+
+  return (
+    <main className="app-shell">
+      <header className="topbar">
+        <div className="nav-links">
+          <Link className="brand" href="/admin">
+            出題者管理
+          </Link>
+        </div>
+        <button className="button secondary" onClick={handleSignOut} type="button">
+          ログアウト
+        </button>
+      </header>
+
+      <section className="page stack">
+        {loading ? <div className="panel">読み込み中...</div> : null}
+        {error ? <div className="message error">{error}</div> : null}
+        {notice ? <div className="message success">{notice}</div> : null}
+
+        {detail ? (
+          <>
+            <div className="panel stack">
+              <div className="action-row">
+                <span className={`status ${roomStatusPresentation(detail.room.status).tone}`}>
+                  {roomStatusPresentation(detail.room.status).label}
+                </span>
+                <h1>{detail.room.title}</h1>
+              </div>
+              <div className="action-row">
+                <Link className="button" href="/admin/results">結果発表画面を開く</Link>
+                <label className="field"><span>1セットの問題数（保存すると過去の結果も再集計します）</span><input className="input" type="number" min={1} max={1000} value={questionsPerSet} onChange={event => setQuestionsPerSet(Number(event.target.value))} /></label>
+                <button className="button secondary" type="button" onClick={saveSetSize} disabled={saving}>セット設定を保存</button>
+                <button className="button secondary" type="button" onClick={() => token && void loadDetail(token).catch(() => setError("成績を更新できませんでした。"))}>成績を更新</button>
+              </div>
+
+            </div>
+
+            <div className="dashboard-grid">
+              <div className="stack">
+                <div className="panel stack">
+                  <h2>問題登録</h2>
+                  <form className="form" onSubmit={handleCreateQuestion}>
+                    <label className="field">
+                      <span>問題タイトル</span>
+                      <input
+                        className="input"
+                        value={questionTitle}
+                        onChange={(event) => setQuestionTitle(event.target.value)}
+                        maxLength={MAX_QUESTION_TITLE_LENGTH}
+                        required
+                      />
+                    </label>
+                    <label className="field">
+                      <span>問題画像</span>
+                      <input className="input" type="file" accept="image/*" onChange={handleUpload} />
+                    </label>
+                    {uploading ? <div className="message notice">画像をアップロード中...</div> : null}
+                    {uploadedImage?.imageUrl ? (
+                      <img className="question-preview" src={uploadedImage.imageUrl} alt="アップロード画像" />
+                    ) : null}
+                    <label className="field"><span>問題モード</span><select className="input" value={mode} onChange={event => { const next = event.target.value as typeof mode; setMode(next); setAnswerText(next === "multiple_choice" ? "A" : ""); }}><option value="normal">通常（文字入力）</option><option value="multiple_choice">4択（A〜D）</option></select></label>
+                    {mode === "multiple_choice" ? <p className="muted">選択肢の内容は問題画像にA〜Dで記載してください。</p> : null}
+                    <div className="split">
+                      <label className="field">
+                        <span>正答</span>
+                        {mode === "multiple_choice" ? <select className="input" value={answerText} onChange={event => setAnswerText(event.target.value)} required>{CHOICE_KEYS.map(choice => <option key={choice} value={choice}>{choice}</option>)}</select> : <input
+                          className="input"
+                          value={answerText}
+                          onChange={(event) => setAnswerText(event.target.value)}
+                          maxLength={MAX_ANSWER_LENGTH}
+                          required
+                        />}
+                      </label>
+                      <label className="field">
+                        <span>制限時間（秒）</span>
+                        <input
+                          className="input"
+                          type="number"
+                          min={1}
+                          value={timeLimitSeconds}
+                          onChange={(event) => setTimeLimitSeconds(Number(event.target.value))}
+                          required
+                        />
+                      </label>
+                      <label className="field">
+                        <span>解答可能回数</span>
+                        <input
+                          className="input"
+                          type="number"
+                          min={1}
+                          max={MAX_ALLOWED_ATTEMPTS}
+                          value={maxAttempts}
+                          onChange={(event) => setMaxAttempts(Number(event.target.value))}
+                          required
+                        />
+                      </label>
+                    </div>
+                    <button className="button" type="submit" disabled={saving || uploading}>
+                      {saving ? "登録中..." : "問題を登録"}
+                    </button>
+                  </form>
+                </div>
+
+                <div className="panel stack">
+                  <h2>問題一覧・進行操作</h2>
+                  {detail.questions.length === 0 ? (
+                    <p className="muted">問題がまだ登録されていません。</p>
+                  ) : null}
+                  <div className="stack">
+                    {detail.questions.map((question) => (
+                      <div className="card stack" key={question.id}>
+                        <div className="action-row">
+                          <span
+                            className={`status ${questionStatusPresentation(question.status).tone}`}
+                          >
+                            {questionStatusPresentation(question.status).label}
+                          </span>
+                          <strong>
+                            セット{Math.ceil(question.order_index / detail.room.questions_per_set)}・第{question.order_index}問 {question.title}
+                          </strong>
+                        </div>
+                        {question.display_image_url ? (
+                          <img
+                            className="question-preview"
+                            src={question.display_image_url}
+                            alt={`${question.title}の画像`}
+                          />
+                        ) : null}
+                        <div className="muted">
+                          {question.mode === "multiple_choice" ? "4択（A〜D）" : "通常"} / 制限時間{" "}
+                          {formatElapsedTime(question.time_limit_ms)} / 解答可能回数 {question.max_attempts}回 / 正答{" "}
+                          {question.answer_text}
+                        </div>
+                        <div className="action-row">
+                          <button
+                            className="button warning"
+                            type="button"
+                            onClick={() =>
+                              runProgressAction(
+                                "/api/admin/start-question",
+                                { roomId, questionId: question.id },
+                                `第${question.order_index}問を開始しますか？`
+                              )
+                            }
+                          >
+                            問題を開始
+                          </button>
+                          {detail.room.current_question_id === question.id ? (
+                            <button
+                              className="button danger"
+                              type="button"
+                              onClick={() =>
+                                runProgressAction(
+                                  "/api/admin/close-question",
+                                  { roomId },
+                                  "現在の問題を締め切りますか？"
+                                )
+                              }
+                            >
+                              解答を締切
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="stack">
+                <div className="panel stack">
+                  <h2>参加者の成績（総合・セット別）</h2>
+                  <p className="muted">総合の正解数が多い順、同数なら正解タイム合計が短い順です。タイム未記録がある成績は同正解数の記録済み成績の後に表示します。</p>
+                  {[...detail.participants].sort((a, b) => b.results.correctCount - a.results.correctCount || a.results.missingTimeCount - b.results.missingTimeCount || a.results.totalTimeMs - b.results.totalTimeMs).map((participant, index) => (
+                    <div className="card stack" key={participant.id}>
+                      <h3>{index + 1}. {participant.name}</h3>
+                      <ResultsSummary results={participant.results} />
+                    </div>
+                  ))}
+                  {detail.participants.length === 0 ? <p className="muted">参加者はいません。</p> : null}
+                </div>
+
+                <div className="panel stack">
+                  <h2>{detail.room.current_question_id ? "現在問題の解答結果" : "解答結果"}</h2>
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>順位</th>
+                          <th>参加者</th>
+                          <th>問題</th>
+                          <th>解答</th>
+                          <th>結果</th>
+                          <th>試行回数</th>
+                          <th>回答時間</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rankedSubmissions.map((submission, index) => (
+                          <tr key={submission.id}>
+                            <td>{index + 1}</td>
+                            <td>{participantNameById.get(submission.participant_id) || "不明"}</td>
+                            <td>{questionTitleById.get(submission.question_id) || "不明"}</td>
+                            <td>{submission.submitted_answer}</td>
+                            <td>
+                              {submission.final_status === "correct"
+                                ? submission.answered_before_reveal
+                                  ? "正解（画像表示前）"
+                                  : "正解"
+                                : submission.final_status === "timeout"
+                                  ? "タイムアップ"
+                                  : submission.final_status === "attempt_limit_exceeded"
+                                    ? "回数上限"
+                                    : submission.is_correct
+                                      ? "正解"
+                                      : "不正解"}
+                            </td>
+                            <td>
+                              {submission.attempt_count}
+                              {submission.max_attempts_snapshot
+                                ? ` / ${submission.max_attempts_snapshot}`
+                                : ""}
+                            </td>
+                            <td>
+                              {typeof submission.answer_elapsed_ms === "number"
+                                ? formatElapsedTime(submission.answer_elapsed_ms)
+                                : "-"}
+                            </td>
+                          </tr>
+                        ))}
+                        {rankedSubmissions.length === 0 ? (
+                          <tr>
+                            <td colSpan={7}>まだ解答はありません。</td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : null}
+      </section>
+    </main>
+  );
+}

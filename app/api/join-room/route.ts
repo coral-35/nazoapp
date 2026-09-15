@@ -55,9 +55,7 @@ export async function POST(request: NextRequest) {
   const roomCode = normalizeRoomCode(body.roomCode || "");
   const participantName = (body.participantName || "").trim();
 
-  if (body.roomCode !== undefined && !isValidRoomCode(roomCode)) {
-    return jsonError("ルーム番号は6桁の数字で入力してください。");
-  }
+
 
   if (!participantName) {
     return jsonError("参加者名を入力してください。");
@@ -68,24 +66,22 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = getSupabaseAdmin();
-  const roomQuery = supabase.from("rooms").select("id, room_code, title, status");
-  const { data: room, error: roomError } = await (body.roomCode === undefined
-    ? roomQuery.eq("id", defaultRoomId())
-    : roomQuery.eq("room_code", roomCode)).single();
+  const { data: room, error: roomError } = await supabase.from("event_settings")
+    .select("id, room_code, title, status").eq("id", defaultRoomId()).single();
 
   if (roomError || !room) {
-    return jsonError("指定されたルームが見つかりません。", 404);
+    return jsonError("指定されたイベントが見つかりません。", 404);
   }
 
   if (room.status === "draft" || room.status === "finished") {
-    return jsonError("このルームは現在参加できません。", 409);
+    return jsonError("このイベントは現在参加できません。", 409);
   }
 
   const deviceIdentity = getRequestDeviceIdentity(request);
   const { data: existingDeviceParticipant } = await supabase
     .from("participants")
     .select("id, name")
-    .eq("room_id", room.id)
+    .eq("event_id", room.id)
     .eq("device_token_hash", deviceIdentity.hash)
     .maybeSingle();
 
@@ -102,7 +98,7 @@ export async function POST(request: NextRequest) {
   const { data: participant, error: participantError } = await supabase
     .from("participants")
     .insert({
-      room_id: room.id,
+      event_id: room.id,
       name: participantName,
       token_hash: hashParticipantToken(token),
       device_token_hash: deviceIdentity.hash
@@ -115,7 +111,7 @@ export async function POST(request: NextRequest) {
       const { data: duplicateDeviceParticipant } = await supabase
         .from("participants")
         .select("id, name")
-        .eq("room_id", room.id)
+        .eq("event_id", room.id)
         .eq("device_token_hash", deviceIdentity.hash)
         .maybeSingle();
       if (duplicateDeviceParticipant) {

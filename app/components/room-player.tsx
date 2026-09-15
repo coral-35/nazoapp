@@ -594,7 +594,7 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
         {!loading && !saved ? (
           <div className="panel stack">
             <h1>参加情報がありません</h1>
-            <p className="muted">ページ更新後の復帰には、先にルーム参加が必要です。</p>
+            <p className="muted">ページ更新後の復帰には、先にイベント参加が必要です。</p>
             <Link className="button" href="/join">
               参加画面へ
             </Link>

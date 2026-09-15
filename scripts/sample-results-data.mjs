@@ -9,11 +9,11 @@ export function sampleId(key) {
 export function createSampleResults() {
   const roomId = sampleId("room");
   const participants = Array.from({ length: 50 }, (_, i) => ({
-    id: sampleId(`participant:${i}`), room_id: roomId,
+    id: sampleId(`participant:${i}`), event_id: roomId,
     name: `サンプル参加者${String(i + 1).padStart(2, "0")}`
   }));
   const questions = Array.from({ length: 21 }, (_, i) => ({
-    id: sampleId(`question:${i}`), room_id: roomId,
+    id: sampleId(`question:${i}`), event_id: roomId,
     title: `セット${Math.floor(i / 7) + 1}・第${i % 7 + 1}問`,
     mode: i % 2 ? "multiple_choice" : "normal",
     answer_text: i % 2 ? "A" : "こたえ", normalized_answer: i % 2 ? "a" : "こたえ",
@@ -28,7 +28,7 @@ export function createSampleResults() {
       : timeout ? 30000 : 5000 + (p * 733 + q * 971) % 24000;
     const answer = correct ? question.answer_text : timeout ? "" : question.mode === "multiple_choice" ? "B" : "不正解";
     return {
-      id: sampleId(`submission:${p}:${q}`), room_id: roomId, participant_id: participant.id, question_id: question.id,
+      id: sampleId(`submission:${p}:${q}`), event_id: roomId, participant_id: participant.id, question_id: question.id,
       submitted_answer: answer, normalized_submitted_answer: answer.toLowerCase(), final_answer: answer,
       is_correct: correct, final_status: correct ? "correct" : timeout ? "timeout" : "attempt_limit_exceeded",
       answer_elapsed_ms: elapsed, attempt_count: timeout ? 0 : 1, max_attempts_snapshot: 1,

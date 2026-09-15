@@ -13,7 +13,7 @@ assert.equal(home.status, 307);
 assert.equal(home.headers.get("location"), "/join");
 const entry = await fetch(`${origin}/join`);
 assert.equal(entry.status, 200);
-assert.ok(!(await entry.text()).includes("ルーム番号"));
+assert.ok(!(await entry.text()).includes("イベント番号"));
 const destination = await (await fetch(`${origin}/api/default-room`)).json();
 assert.equal(destination.status, "waiting");
 let participantId;
@@ -51,6 +51,6 @@ try {
 } finally {
   if (participantId) {
     assert.match(participantId, /^[0-9a-f-]{36}$/);
-    execFileSync("docker", ["exec", "supabase_db_quiz", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", `DELETE FROM public.participants WHERE id = '${participantId}' AND room_id = '${SAMPLE_DEFAULT_ROOM_ID}'`], { stdio: "pipe" });
+    execFileSync("docker", ["exec", "supabase_db_quiz", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", `DELETE FROM public.participants WHERE id = '${participantId}' AND event_id = '${SAMPLE_DEFAULT_ROOM_ID}'`], { stdio: "pipe" });
   }
 }

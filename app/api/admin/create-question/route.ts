@@ -1,3 +1,4 @@
+import { defaultRoomId } from "@/lib/default-room";
 import { isValidQuestionMode, isChoiceAnswer } from "@/lib/results";
 import { NextResponse } from "next/server";
 import {
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
     return jsonError("リクエスト形式が正しくありません。");
   }
 
-  const roomId = body.roomId || "";
+  const roomId = defaultRoomId();
   const title = (body.title || "").trim();
   const answerText = (body.answerText || "").trim();
   const mode = body.mode ?? "normal";
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
   const imagePath = (body.imagePath || "").trim() || null;
 
   if (!roomId || !title || !answerText) {
-    return jsonError("ルーム、問題タイトル、正答を入力してください。");
+    return jsonError("イベント、問題タイトル、正答を入力してください。");
   }
 
   if (exceedsTextLimit(title, MAX_QUESTION_TITLE_LENGTH)) {
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
   const { data: lastQuestion } = await supabase
     .from("questions")
     .select("order_index")
-    .eq("room_id", roomId)
+    .eq("event_id", roomId)
     .order("order_index", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("questions")
     .insert({
-      room_id: roomId,
+      event_id: roomId,
       title,
       image_url: imageUrl,
       image_path: imagePath,

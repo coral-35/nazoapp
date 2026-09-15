@@ -16,25 +16,25 @@ export async function GET(request: NextRequest) {
   const participantToken = url.searchParams.get("participant_token") || "";
 
   if (!isValidRoomCode(roomCode) || !participantToken) {
-    return jsonError("ルーム番号と参加者情報が必要です。", 400);
+    return jsonError("イベント番号と参加者情報が必要です。", 400);
   }
 
   const supabase = getSupabaseAdmin();
   const deviceIdentity = getRequestDeviceIdentity(request);
   const { data: room } = await supabase
-    .from("rooms")
+    .from("event_settings")
     .select("id, questions_per_set")
     .eq("room_code", roomCode)
     .single();
 
   if (!room) {
-    return jsonError("ルームが見つかりません。", 404);
+    return jsonError("イベントが見つかりません。", 404);
   }
 
   const { data: participant, error } = await supabase
     .from("participants")
     .select("id, name, device_token_hash")
-    .eq("room_id", room.id)
+    .eq("event_id", room.id)
     .eq("token_hash", hashParticipantToken(participantToken))
     .single();
 

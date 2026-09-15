@@ -17,6 +17,15 @@ const response = await fetch(url, { headers: { Authorization: `Bearer ${auth.ses
 assert.equal(response.status, 200);
 const results = await response.json();
 assert.equal(results.scores.length, 50);
+const eventResponse = await fetch(`${origin}/api/admin/event`, { headers: { Authorization: `Bearer ${auth.session.access_token}` } });
+assert.equal(eventResponse.status, 200);
+assert.equal((await eventResponse.json()).room.id, sample.roomId);
+const ignoredSelection = await fetch(`${origin}/api/admin/scores?roomId=not-an-event`, { headers: { Authorization: `Bearer ${auth.session.access_token}` } });
+assert.equal((await ignoredSelection.json()).room.id, sample.roomId);
+assert.equal((await fetch(`${origin}/api/admin/create-room`, { method: "POST" })).status, 404);
+const participantEntry = await (await fetch(`${origin}/join`)).text();
+assert.ok(!participantEntry.includes('href="/admin'));
+
 assert.equal(results.questionCount, 21);
 assert.equal(results.setCount, 3);
 for (const p of sample.participants) {
@@ -32,5 +41,5 @@ for (const set of [null, 1, 2, 3]) {
   assert.equal(ranking.length, 50);
   assert.deepEqual(ranking.slice(0, 3).map(row => row.rank), [1, 1, 3]);
 }
-assert.equal((await fetch(`${origin}/admin/rooms/${sample.roomId}/results`)).status, 200);
+assert.equal((await fetch(`${origin}/admin/results`)).status, 200);
 console.log("PASS: protected results API, 50 participants, 21 questions, 3 sets, all stored totals, tied rankings, results page response");

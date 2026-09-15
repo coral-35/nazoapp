@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!isValidRoomCode(roomCode)) {
-    return answerError("ROOM_CODE_INVALID", "ルーム番号は6桁の数字で指定してください。");
+    return answerError("ROOM_CODE_INVALID", "イベント番号は6桁の数字で指定してください。");
   }
 
   if (!isFinalStatus(body.finalStatus)) {
@@ -111,19 +111,19 @@ export async function POST(request: NextRequest) {
 
   const supabase = getSupabaseAdmin();
   const { data: room, error: roomError } = await supabase
-    .from("rooms")
+    .from("event_settings")
     .select("id, status, current_question_id")
     .eq("room_code", roomCode)
     .single();
 
   if (roomError || !room) {
-    return answerError("ROOM_NOT_FOUND", "ルームが見つかりません。", 404);
+    return answerError("ROOM_NOT_FOUND", "イベントが見つかりません。", 404);
   }
 
   const { data: participant, error: participantError } = await supabase
     .from("participants")
-    .select("id, room_id, device_token_hash")
-    .eq("room_id", room.id)
+    .select("id, event_id, device_token_hash")
+    .eq("event_id", room.id)
     .eq("token_hash", hashParticipantToken(participantToken))
     .single();
 
@@ -153,10 +153,10 @@ export async function POST(request: NextRequest) {
   const { data: question, error: questionError } = await supabase
     .from("questions")
     .select(
-      "id, room_id, answer_text, mode, status, time_limit_ms, max_attempts"
+      "id, event_id, answer_text, mode, status, time_limit_ms, max_attempts"
     )
     .eq("id", questionId)
-    .eq("room_id", room.id)
+    .eq("event_id", room.id)
     .single();
 
   if (questionError || !question) {
@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
   const { data: existingSubmissions, error: existingSubmissionError } = await supabase
     .from("submissions")
     .select("id")
-    .eq("room_id", room.id)
+    .eq("event_id", room.id)
     .eq("participant_id", participant.id)
     .eq("question_id", question.id)
     .limit(1);
@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
   const { data: submission, error: submissionError } = await supabase
     .from("submissions")
     .insert({
-      room_id: room.id,
+      event_id: room.id,
       participant_id: participant.id,
       question_id: question.id,
       submitted_answer: finalAnswer || "",

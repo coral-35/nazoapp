@@ -69,7 +69,6 @@ export default function JoinPage() {
   return <main className="app-shell">
     <header className="topbar">
       <Link className="brand" href="/">謎解き企画アプリ</Link>
-      <Link href="/admin/login">出題者ログイン</Link>
     </header>
     <section className="narrow-page">
       <div className="panel stack">

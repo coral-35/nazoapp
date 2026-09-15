@@ -19,25 +19,25 @@ export async function GET(request: NextRequest) {
   const participantToken = url.searchParams.get("participant_token") || "";
 
   if (!isValidRoomCode(roomCode) || !participantToken) {
-    return jsonError("ルーム番号と参加者情報が必要です。", 400);
+    return jsonError("イベント番号と参加者情報が必要です。", 400);
   }
 
   const supabase = getSupabaseAdmin();
   const deviceIdentity = getRequestDeviceIdentity(request);
   const { data: room, error: roomError } = await supabase
-    .from("rooms")
+    .from("event_settings")
     .select("id, room_code, title, status, current_question_id, questions_per_set")
     .eq("room_code", roomCode)
     .single();
 
   if (roomError || !room) {
-    return jsonError("ルームが見つかりません。", 404);
+    return jsonError("イベントが見つかりません。", 404);
   }
 
   const { data: participant, error: participantError } = await supabase
     .from("participants")
     .select("id, name, device_token_hash")
-    .eq("room_id", room.id)
+    .eq("event_id", room.id)
     .eq("token_hash", hashParticipantToken(participantToken))
     .single();
 
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
         "id, title, image_url, image_path, answer_text, mode, order_index, status, time_limit_ms, max_attempts"
       )
       .eq("id", room.current_question_id)
-      .eq("room_id", room.id)
+      .eq("event_id", room.id)
       .single();
 
     if (currentQuestion) {
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
         supabase
           .from("submissions")
           .select("id, is_correct")
-          .eq("room_id", room.id)
+          .eq("event_id", room.id)
           .eq("participant_id", participant.id)
           .eq("question_id", currentQuestion.id)
           .order("is_correct", { ascending: false })

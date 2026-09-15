@@ -1,6 +1,6 @@
 create extension if not exists pgcrypto;
 
-create table if not exists public.rooms (
+create table if not exists public.event_settings (
   id uuid primary key default gen_random_uuid(),
   room_code text not null unique,
   title text not null,
@@ -18,54 +18,54 @@ declare
 begin
   for target_room in
     select id
-    from public.rooms
+    from public.event_settings
     where room_code !~ '^[0-9]{6}$'
   loop
     loop
       candidate_code := lpad(floor(random() * 1000000)::integer::text, 6, '0');
       exit when not exists (
         select 1
-        from public.rooms
+        from public.event_settings
         where room_code = candidate_code
       );
     end loop;
 
-    update public.rooms
+    update public.event_settings
     set room_code = candidate_code
     where id = target_room.id;
   end loop;
 end;
 $$;
 
-alter table public.rooms
+alter table public.event_settings
   drop constraint if exists rooms_room_code_numeric_check;
 
-alter table public.rooms
+alter table public.event_settings
   add constraint rooms_room_code_numeric_check
   check (room_code ~ '^[0-9]{6}$');
 
 create table if not exists public.participants (
   id uuid primary key default gen_random_uuid(),
-  room_id uuid not null references public.rooms(id) on delete cascade,
+  event_id uuid not null references public.event_settings(id) on delete cascade,
   name text not null,
   token_hash text not null unique,
   device_token_hash text,
   total_score integer not null default 0 check (total_score >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (room_id, name)
+  unique (event_id, name)
 );
 
 alter table public.participants
   add column if not exists device_token_hash text;
 
 create unique index if not exists participants_unique_room_device
-on public.participants (room_id, device_token_hash)
+on public.participants (event_id, device_token_hash)
 where device_token_hash is not null;
 
 create table if not exists public.questions (
   id uuid primary key default gen_random_uuid(),
-  room_id uuid not null references public.rooms(id) on delete cascade,
+  event_id uuid not null references public.event_settings(id) on delete cascade,
   title text not null,
   image_url text,
   image_path text,
@@ -78,7 +78,7 @@ create table if not exists public.questions (
   status text not null default 'draft' check (status in ('draft', 'open', 'closed')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (room_id, order_index)
+  unique (event_id, order_index)
 );
 
 do $$
@@ -88,7 +88,7 @@ begin
     from pg_constraint
     where conname = 'rooms_current_question_id_fkey'
   ) then
-    alter table public.rooms
+    alter table public.event_settings
       add constraint rooms_current_question_id_fkey
       foreign key (current_question_id) references public.questions(id) on delete set null;
   end if;
@@ -106,7 +106,7 @@ create table if not exists public.answer_aliases (
 
 create table if not exists public.submissions (
   id uuid primary key default gen_random_uuid(),
-  room_id uuid not null references public.rooms(id) on delete cascade,
+  event_id uuid not null references public.event_settings(id) on delete cascade,
   participant_id uuid not null references public.participants(id) on delete cascade,
   question_id uuid not null references public.questions(id) on delete cascade,
   submitted_answer text not null,
@@ -127,7 +127,7 @@ create table if not exists public.submissions (
 
 create table if not exists public.score_events (
   id uuid primary key default gen_random_uuid(),
-  room_id uuid not null references public.rooms(id) on delete cascade,
+  event_id uuid not null references public.event_settings(id) on delete cascade,
   participant_id uuid not null references public.participants(id) on delete cascade,
   question_id uuid not null references public.questions(id) on delete cascade,
   points integer not null check (points > 0),
@@ -233,16 +233,16 @@ set
 where final_status is null
   and answer_elapsed_ms is not null;
 
-create index if not exists participants_room_id_idx on public.participants(room_id);
-create index if not exists questions_room_id_idx on public.questions(room_id);
-create index if not exists submissions_room_question_idx on public.submissions(room_id, question_id);
+create index if not exists participants_event_id_idx on public.participants(event_id);
+create index if not exists questions_event_id_idx on public.questions(event_id);
+create index if not exists submissions_room_question_idx on public.submissions(event_id, question_id);
 create unique index if not exists submissions_unique_timed_room_participant_question
-on public.submissions (room_id, participant_id, question_id)
+on public.submissions (event_id, participant_id, question_id)
 where answer_elapsed_ms is not null;
 create unique index if not exists submissions_unique_room_participant_question_final_completed
-on public.submissions (room_id, participant_id, question_id)
+on public.submissions (event_id, participant_id, question_id)
 where final_status is not null;
-create index if not exists score_events_room_id_idx on public.score_events(room_id);
+create index if not exists score_events_event_id_idx on public.score_events(event_id);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -254,9 +254,9 @@ begin
 end;
 $$;
 
-drop trigger if exists rooms_set_updated_at on public.rooms;
+drop trigger if exists rooms_set_updated_at on public.event_settings;
 create trigger rooms_set_updated_at
-before update on public.rooms
+before update on public.event_settings
 for each row execute function public.set_updated_at();
 
 drop trigger if exists participants_set_updated_at on public.participants;
@@ -285,7 +285,7 @@ begin
 end;
 $$;
 
-alter table public.rooms enable row level security;
+alter table public.event_settings enable row level security;
 alter table public.participants enable row level security;
 alter table public.questions enable row level security;
 alter table public.answer_aliases enable row level security;
@@ -293,7 +293,7 @@ alter table public.submissions enable row level security;
 alter table public.score_events enable row level security;
 
 grant usage on schema public to service_role;
-grant select, insert, update on table public.rooms to service_role;
+grant select, insert, update on table public.event_settings to service_role;
 grant select, insert, update on table public.participants to service_role;
 grant select, insert, update on table public.questions to service_role;
 grant select, insert on table public.answer_aliases to service_role;
@@ -315,7 +315,7 @@ on conflict (id) do update set
   allowed_mime_types = excluded.allowed_mime_types;
 
 -- Keep historical score columns for compatibility; new results use submissions only.
-alter table public.rooms add column if not exists questions_per_set integer not null default 7
+alter table public.event_settings add column if not exists questions_per_set integer not null default 7
   check (questions_per_set between 1 and 1000);
 alter table public.questions add column if not exists mode text not null default 'normal'
   check (mode in ('normal', 'multiple_choice'));

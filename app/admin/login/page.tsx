@@ -28,7 +28,7 @@ export default function AdminLoginPage() {
         throw new Error("メールアドレスまたはパスワードを確認してください。");
       }
 
-      router.push("/admin/rooms");
+      router.push("/admin");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "ログインに失敗しました。");
     } finally {

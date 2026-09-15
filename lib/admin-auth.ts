@@ -32,17 +32,17 @@ export async function requireAdminUser(request: Request): Promise<AdminAuthResul
 export async function ensureRoomOwner(roomId: string, userId: string) {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
-    .from("rooms")
+    .from("event_settings")
     .select("id, created_by")
     .eq("id", roomId)
     .single();
 
   if (error || !data) {
-    return { ok: false as const, status: 404, message: "ルームが見つかりません。" };
+    return { ok: false as const, status: 404, message: "イベントが見つかりません。" };
   }
 
   if (data.created_by !== userId) {
-    return { ok: false as const, status: 403, message: "このルームを操作する権限がありません。" };
+    return { ok: false as const, status: 403, message: "このイベントを操作する権限がありません。" };
   }
 
   return { ok: true as const, room: data };

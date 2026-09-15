@@ -1,3 +1,4 @@
+import { defaultRoomId } from "@/lib/default-room";
 import { NextResponse } from "next/server";
 import { ensureRoomOwner, requireAdminUser } from "@/lib/admin-auth";
 import { jsonError } from "@/lib/http";
@@ -20,9 +21,9 @@ export async function POST(request: Request) {
     return jsonError("リクエスト形式が正しくありません。");
   }
 
-  const roomId = body.roomId || "";
+  const roomId = defaultRoomId();
   if (!roomId) {
-    return jsonError("ルームを指定してください。");
+    return jsonError("イベントを指定してください。");
   }
 
   const owner = await ensureRoomOwner(roomId, auth.user.id);
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
 
   const supabase = getSupabaseAdmin();
   const { data: room } = await supabase
-    .from("rooms")
+    .from("event_settings")
     .select("current_question_id")
     .eq("id", roomId)
     .eq("created_by", auth.user.id)
@@ -43,11 +44,11 @@ export async function POST(request: Request) {
       .from("questions")
       .update({ status: "closed" })
       .eq("id", room.current_question_id)
-      .eq("room_id", roomId);
+      .eq("event_id", roomId);
   }
 
   const { data: updatedRoom, error } = await supabase
-    .from("rooms")
+    .from("event_settings")
     .update({ status: "question_closed" })
     .eq("id", roomId)
     .eq("created_by", auth.user.id)

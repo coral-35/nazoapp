@@ -1,3 +1,4 @@
+import { defaultRoomId } from "@/lib/default-room";
 import { loadResults } from "@/lib/results.server";
 import { NextResponse } from "next/server";
 import { ensureRoomOwner, requireAdminUser } from "@/lib/admin-auth";
@@ -11,10 +12,10 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const roomId = url.searchParams.get("roomId") || "";
+  const roomId = defaultRoomId();
 
   if (!roomId) {
-    return jsonError("ルームを指定してください。");
+    return jsonError("イベントを指定してください。");
   }
 
   const owner = await ensureRoomOwner(roomId, auth.user.id);
@@ -26,20 +27,20 @@ export async function GET(request: Request) {
   const { data, error } = await supabase
     .from("participants")
     .select("id, name, created_at")
-    .eq("room_id", roomId)
+    .eq("event_id", roomId)
     .order("created_at", { ascending: true });
 
   if (error) {
     return jsonError("成績一覧の取得に失敗しました。", 500);
   }
 
-  const { data: room, error: roomError } = await supabase.from("rooms").select("id, title, room_code, questions_per_set").eq("id", roomId).single();
-  if (roomError || !room) return jsonError("ルーム情報を取得できませんでした。", 500);
+  const { data: room, error: roomError } = await supabase.from("event_settings").select("id, title, room_code, questions_per_set").eq("id", roomId).single();
+  if (roomError || !room) return jsonError("イベント情報を取得できませんでした。", 500);
   const resultsFor = await loadResults(roomId, room.questions_per_set);
   const scores = (data || []).map(p => ({ ...p, ...resultsFor(p.id) }));
   scores.sort((a, b) => b.correctCount - a.correctCount || a.missingTimeCount - b.missingTimeCount || a.totalTimeMs - b.totalTimeMs);
   const { data: lastQuestion, count: questionCount, error: questionError } = await supabase
-    .from("questions").select("order_index", { count: "exact" }).eq("room_id", roomId)
+    .from("questions").select("order_index", { count: "exact" }).eq("event_id", roomId)
     .order("order_index", { ascending: false }).limit(1);
   if (questionError) return jsonError("問題数を取得できませんでした。", 500);
   return NextResponse.json({ scores, room, questionCount: questionCount || 0,

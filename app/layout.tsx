@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "謎解き企画アプリ",
-  description: "ルーム参加型の謎解き企画用Webアプリ"
+  description: "イベント参加型の謎解き企画用Webアプリ"
 };
 
 export default function RootLayout({

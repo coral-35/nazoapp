@@ -183,3 +183,18 @@ npm run dev
 ```bash
 QUIZ_TEST_ORIGIN=http://127.0.0.1:3000 node --env-file=.env.local scripts/test-default-entry-local.mjs
 ```
+
+## 単一イベント版
+
+現在の `experiment/single-event` は1つのイベントを運用する版です。参加者は `/` から名前を入力して参加し、保存済みの参加情報が有効なら `/play` に復帰します。参加者サイトに出題者リンクはありません。出題者はURLへ直接 `/admin` を入力し、ログイン後に問題登録・進行・成績を管理します。結果発表は `/admin/results` です。
+
+イベント作成・一覧は廃止しました。管理APIは常に設定された単一イベントを操作します。DBの `rooms` テーブルは `event_settings`、関連する `room_id` 列は `event_id` に変更しています。参加者の既存キャッシュと解答記録を引き継ぐため、内部の旧識別コードは保持しています。既存DBには `20260915010000_single_event.sql` の適用が必要です。
+
+保存ブランチ:
+
+- `basic/rooms`: ルーム番号・ルーム作成・一覧があるベーシック版
+- `basic/default-room-entry`: 番号なし参加導線を加えた、ルームDBを持つ版
+
+これらは旧DB構造を使用します。現在のローカルDBは単一イベント構造に移行済みのため、ベーシック版を実行するときは別のSupabase環境を使って、そのブランチのマイグレーションでDBを構築してください。コードのブランチ切り替えだけではDB構造は戻りません。
+
+この版の検証は `npm test` と、起動済みアプリへの `scripts/test-default-entry-local.mjs`、`scripts/test-sample-results-local.mjs` で行います。旧ルーム作成APIを使う検証スクリプトは削除しました。上記READMEの旧 `/admin/rooms`・ルーム作成に関する説明は保存したベーシック版についての説明です。

@@ -1,3 +1,4 @@
+import { defaultRoomId } from "@/lib/default-room";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { ensureRoomOwner, requireAdminUser } from "@/lib/admin-auth";
@@ -14,11 +15,11 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
-  const roomId = String(formData.get("roomId") || "");
+  const roomId = defaultRoomId();
   const file = formData.get("file");
 
   if (!roomId || !(file instanceof File)) {
-    return jsonError("ルームと画像ファイルを指定してください。");
+    return jsonError("イベントと画像ファイルを指定してください。");
   }
 
   if (!allowedTypes.has(file.type)) {
