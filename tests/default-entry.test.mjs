@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { defaultRoomId, SAMPLE_DEFAULT_ROOM_ID } from "../lib/default-room.ts";
-import { sampleId } from "../scripts/sample-results-data.mjs";
+import { defaultRoomId } from "../lib/default-room.ts";
 import { readStoredParticipant, restoreStoredParticipant } from "../lib/participant-storage.ts";
 
 const participant = { participantToken: "token", participantName: "参加者", roomCode: "123456" };
@@ -9,10 +8,12 @@ function storage(value = JSON.stringify(participant)) {
   return { value, removed: false, getItem() { return this.value; }, removeItem() { this.removed = true; this.value = null; } };
 }
 
-test("default destination is the seeded sample unless explicitly configured", () => {
-  assert.equal(defaultRoomId({}), sampleId("room"));
-  assert.equal(defaultRoomId({ DEFAULT_ROOM_ID: "  " }), SAMPLE_DEFAULT_ROOM_ID);
-  assert.equal(defaultRoomId({ DEFAULT_ROOM_ID: " custom-room " }), "custom-room");
+test("production event requires an explicit UUID", () => {
+  const eventId = "74cdd564-a4e2-415d-a37d-92e924bc5986";
+  assert.equal(defaultRoomId({ DEFAULT_EVENT_ID: ` ${eventId} ` }), eventId);
+  for (const env of [{}, { DEFAULT_EVENT_ID: "" }, { DEFAULT_EVENT_ID: "sample" }]) {
+    assert.throws(() => defaultRoomId(env), /DEFAULT_EVENT_ID/);
+  }
 });
 test("valid cache is restored without changing the participant", async () => {
   const store = storage();

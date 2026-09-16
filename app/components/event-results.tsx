@@ -28,8 +28,8 @@ export function EventResults({ roomId, participantToken }: { roomId: string; par
   const hasData = data !== null;
 
   useLayoutEffect(() => {
-    if (hasData) window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" });
-  }, [hasData, selectedSet, tabSelection]);
+    if (hasData && !participantToken) window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" });
+  }, [hasData, selectedSet, tabSelection, participantToken]);
 
   const selectTab = (set: number | null) => {
     setSelectedSet(set);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { aggregateResults, rankResults } from "../lib/results.ts";
-import { createSampleResults } from "../scripts/sample-results-data.mjs";
+import { createSampleResults } from "./fixtures/results-data.mjs";
 
 const player = (id, count, time, missing = 0, sets = []) => ({ id, name: id, correctCount: count, totalTimeMs: time, missingTimeCount: missing, sets });
 
@@ -26,7 +26,7 @@ test("missing time is not treated as zero, and empty and unanswered results are 
   assert.equal(rankResults([player("A", 0, 0)], 1)[0].result.correctCount, 0);
 });
 
-test("sample has 50 synthetic participants, three seven-question sets and 1050 consistent answers", () => {
+test("fixture has 50 synthetic participants, three seven-question sets and 1050 consistent answers", () => {
   const sample = createSampleResults();
   assert.equal(sample.participants.length, 50);
   assert.equal(sample.questions.length, 21);
