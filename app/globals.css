@@ -501,6 +501,7 @@ tr:last-child td {
   color: #17202a; text-shadow: none;
 }
 .winner-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.results-page .winner-board { margin-top: clamp(120px, 22vh, 240px); }
 .winner-card {
   padding: 26px; border: 2px solid #d8d9dc; border-radius: 16px;
   background: #ffffff; text-align: center;
