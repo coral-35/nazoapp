@@ -32,6 +32,7 @@ export default function AdminLoginPage() {
       // Start a fresh navigation after the new session is persisted.
       window.location.assign("/admin");
     } catch (caught) {
+      await getSupabaseBrowserClient().auth.signOut();
       setError(caught instanceof Error ? caught.message : "ログインに失敗しました。");
     } finally {
       setLoading(false);

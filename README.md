@@ -42,7 +42,7 @@ npm run supabase:start
 npm run dev
 ```
 
-`npm run supabase:start` はローカルDBを起動し、ローカル管理者を作成します。初回はこの管理者が所有する `event_settings` 行を作成し、そのIDを `.env.local` の `DEFAULT_EVENT_ID` に設定してください。既存DBからの移行ではマイグレーションが解答・成績を保持します。
+`npm run supabase:start` はローカルDBを起動し、ローカル管理者を作成します。既存の管理者がいる場合は `.env.local` のパスワードへ同期します。`DEFAULT_EVENT_ID` のイベントが存在する場合は、その管理者をイベント所有者に設定します。初回は `event_settings` 行を作成し、そのIDを `.env.local` の `DEFAULT_EVENT_ID` に設定してから `npm run seed:admin:local` を再実行してください。既存DBからの移行ではマイグレーションが解答・成績を保持します。
 
 確認:
 

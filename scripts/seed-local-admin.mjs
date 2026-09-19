@@ -75,23 +75,51 @@ export async function seedLocalAdmin({
   });
 
   const existingUser = await findUserByEmail(supabase.auth.admin, email);
+  let userId;
+  let created = false;
+
   if (existingUser) {
-    logger.log(`Local quiz admin already exists: ${email}`);
-    return { created: false, userId: existingUser.id };
+    const { data, error } = await supabase.auth.admin.updateUserById(existingUser.id, {
+      password,
+      email_confirm: true
+    });
+    if (error || !data.user) {
+      throw new Error(`Failed to update local admin user: ${error?.message || "unknown error"}`);
+    }
+    userId = data.user.id;
+    logger.log(`Updated local quiz admin: ${email}`);
+  } else {
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true
+    });
+    if (error || !data.user) {
+      throw new Error(`Failed to create local quiz admin: ${error?.message || "unknown error"}`);
+    }
+    userId = data.user.id;
+    created = true;
+    logger.log(`Created local quiz admin: ${email}`);
   }
 
-  const { data, error } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true
-  });
-
-  if (error || !data.user) {
-    throw new Error(`Failed to create local quiz admin: ${error?.message || "unknown error"}`);
+  const eventId = env.DEFAULT_EVENT_ID?.trim();
+  if (eventId) {
+    const { data: event, error: eventError } = await supabase
+      .from("event_settings")
+      .update({ created_by: userId })
+      .eq("id", eventId)
+      .select("id")
+      .maybeSingle();
+    if (eventError) {
+      throw new Error(`Failed to assign local event owner: ${eventError.message}`);
+    }
+    if (!event) {
+      throw new Error("DEFAULT_EVENT_ID does not match a local event");
+    }
+    logger.log(`Assigned local event owner: ${eventId}`);
   }
 
-  logger.log(`Created local quiz admin: ${email}`);
-  return { created: true, userId: data.user.id };
+  return { created, userId };
 }
 
 const isDirectExecution =
