@@ -10,3 +10,5 @@ yarn-error.log*
 pnpm-debug.log*
 *.tsbuildinfo
 .DS_Store
+# Local source images for bulk question import
+/nazo/

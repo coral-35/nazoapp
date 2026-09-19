@@ -51,4 +51,20 @@ npm test
 npm run build
 ```
 
+## ローカル画像の一括取込
+
+`nazo` ディレクトリに `Frame 101.png`〜`Frame 121.png` を置くと、ファイル名順に第1〜21問へ一括登録できます。画像はSupabase Storageへ保存され、元ファイルはGitに追加されません。
+
+```bash
+npm run import:question-images:local
+```
+
+実行前に、画像が21枚の連番であること、イベントに第1〜21問があること、既存画像が未設定であることを検証します。画像を差し替える場合だけ、次のように明示します。
+
+```bash
+REPLACE_QUESTION_IMAGES=1 npm run import:question-images:local
+```
+
+取込先は `.env.local` の `DEFAULT_EVENT_ID` と `QUESTION_IMAGE_BUCKET` です。このコマンドはローカルSupabase以外への接続を拒否します。
+
 以前のルーム作成版のコードは `basic/rooms`、番号なしエントリーでルームDBを持つ版は `basic/default-room-entry` に保存しています。それぞれ旧DB構造を使用するため、切り替えて実行するときは別のDB環境を使ってください。
