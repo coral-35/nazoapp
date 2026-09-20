@@ -12,3 +12,4 @@ pnpm-debug.log*
 .DS_Store
 # Local source images for bulk question import
 /nazo/
+.vercel
