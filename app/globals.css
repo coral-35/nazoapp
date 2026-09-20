@@ -358,7 +358,7 @@ input {
 }
 
 .question-panel .form {
-  gap: 9px;
+  gap: 7px;
 }
 
 .input::placeholder {
@@ -397,6 +397,40 @@ input {
 .reveal-control {
   display: grid;
   min-height: 46px;
+}
+
+.choice-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.choice-button {
+  width: 100%;
+  min-width: 0;
+  color: #fff;
+  font-size: 1.15rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+
+.choice-button.choice-A { background: rgb(0, 0, 200); }
+.choice-button.choice-B { background: rgb(255, 0, 0); }
+.choice-button.choice-C { background: rgb(0, 255, 0); }
+.choice-button.choice-D { background: rgb(255, 200, 0); }
+
+.choice-button:hover {
+  filter: brightness(0.88);
+}
+
+.choice-button[aria-pressed="true"] {
+  outline: 3px solid #17202a;
+  outline-offset: 2px;
+}
+
+.choice-button:disabled {
+  color: #fff;
+  opacity: 0.55;
 }
 
 .answer-result-area {

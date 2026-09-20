@@ -657,8 +657,8 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
                     )}
                   </div>
 
-                  <div className="reveal-control">
-                    {isReady && playState.room.status === "question_open" && !playState.hasSubmission ? (
+                  {isReady && playState.room.status === "question_open" && !playState.hasSubmission ? (
+                    <div className="reveal-control">
                       <button
                         className="button"
                         type="button"
@@ -667,15 +667,15 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
                       >
                         {imageStatus === "ready" ? "画像を表示して開始" : "画像を準備中..."}
                       </button>
-                    ) : null}
-                  </div>
+                    </div>
+                  ) : null}
 
                   <form className="form" onSubmit={handleAttempt}>
                     <div className="field">
                       <span>解答</span>
                       {playState.question.mode === "multiple_choice" ? (
-                        <div className="action-row" role="group" aria-label="4択の解答">
-                          {CHOICE_KEYS.map(choice => <button key={choice} type="button" className={`button ${answer === choice ? "" : "secondary"}`} aria-pressed={answer === choice} disabled={!canAnswer} onClick={() => setAnswer(choice)}>{choice}</button>)}
+                        <div className="choice-buttons" role="group" aria-label="4択の解答">
+                          {CHOICE_KEYS.map(choice => <button key={choice} type="button" className={`button choice-button choice-${choice}`} aria-pressed={answer === choice} disabled={!canAnswer} onClick={() => setAnswer(choice)}>{choice}</button>)}
                         </div>
                       ) : <input
                         aria-label="解答"
