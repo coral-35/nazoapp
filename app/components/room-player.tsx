@@ -13,6 +13,7 @@ import {
 } from "@/lib/participant-answer-feedback";
 import { participantStorageKey, readStoredParticipant } from "@/lib/participant-storage";
 import { MAX_ANSWER_LENGTH } from "@/lib/input-limits";
+import { formatQuestionPlacement } from "@/lib/question-placement";
 
 type FinalStatus = ParticipantFinalStatus;
 type SessionStatus = "ready" | "active" | "completed" | "submitting" | "submitted";
@@ -626,8 +627,7 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
               ) : (
                 <>
                   <div>
-                    <div className="muted">セット{playState.question.setNumber}・{playState.question.questionLabel}</div>
-                    <h1>{playState.question.title}</h1>
+                    <h1>{formatQuestionPlacement(playState.question.setNumber, playState.question.questionLabel)}</h1>
                   </div>
                   <div className="muted">
                     解答可能回数 {playState.question.maxAttempts}回 / 解答済み{" "}

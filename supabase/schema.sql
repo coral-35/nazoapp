@@ -376,3 +376,6 @@ end;
 $$;
 
 grant execute on function public.organize_event_questions(uuid, uuid[], uuid[]) to service_role;
+
+update public.event_settings
+set title = '謎解き早解き感謝祭';

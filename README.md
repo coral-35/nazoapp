@@ -1,4 +1,4 @@
-# 謎解き企画アプリ
+# 謎解き早解き感謝祭
 
 単一イベントの参加者向け解答画面、出題者管理画面、結果発表画面を提供する Next.js / Supabase アプリです。
 
@@ -12,7 +12,7 @@ Supabaseに [migrations](supabase/migrations) を適用し、Authenticationで�
 
 ```sql
 insert into public.event_settings (id, room_code, title, status, created_by, questions_per_set)
-select gen_random_uuid(), '123456', '謎解き企画', 'waiting', id, 7
+select gen_random_uuid(), '123456', '謎解き早解き感謝祭', 'waiting', id, 7
 from auth.users
 where email = 'admin@example.com'
 returning id;

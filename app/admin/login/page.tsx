@@ -43,7 +43,7 @@ export default function AdminLoginPage() {
     <main className="app-shell">
       <header className="topbar">
         <Link className="brand" href="/">
-          謎解き企画アプリ
+          謎解き早解き感謝祭
         </Link>
       </header>
 
