@@ -602,7 +602,7 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
 
         {playState ? (
           <>
-            <div className="panel stack">
+            <div className="panel stack question-panel">
               <div className="action-row">
                 <span
                   className={`status ${
@@ -627,12 +627,18 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
               ) : (
                 <>
                   <div>
-                    <h1>{formatQuestionPlacement(playState.question.setNumber, playState.question.questionLabel)}</h1>
+                    <h1 className="question-heading">{formatQuestionPlacement(playState.question.setNumber, playState.question.questionLabel)}</h1>
                   </div>
                   <div className="muted">
                     解答可能回数 {playState.question.maxAttempts}回 / 解答済み{" "}
                     {session?.attemptCount || 0}回 / 残り {remainingAttempts}回
                   </div>
+                  {imageRevealed && remainingMs !== null ? (
+                    <div className={`timer-row ${remainingMs <= 0 ? "timeout" : ""}`} role="timer" aria-live="off">
+                      <span>残り時間</span>
+                      <strong>{(Math.max(0, remainingMs) / 1000).toFixed(1)}秒</strong>
+                    </div>
+                  ) : null}
                   <div className={`question-image-wrap ${imageRevealed ? "" : "preview"}`}>
                     {imageRevealed && playState.question.imageUrl ? (
                       <img
@@ -676,6 +682,7 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
                         onChange={(event) => setAnswer(event.target.value)}
                         disabled={!canAnswer}
                         autoComplete="off"
+                        placeholder="答えを入力"
                         maxLength={MAX_ANSWER_LENGTH}
                       />}
                     </div>

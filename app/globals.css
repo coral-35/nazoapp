@@ -301,6 +301,30 @@ input {
   color: var(--danger);
 }
 
+.question-panel {
+  gap: 9px;
+  padding-block: clamp(12px, 2vw, 18px);
+}
+
+.question-panel > .action-row:first-child {
+  margin-top: 0;
+}
+
+.question-heading {
+  margin: 0;
+  font-size: clamp(1.25rem, 3vw, 1.65rem);
+  line-height: 1.25;
+}
+
+.question-panel .form {
+  gap: 9px;
+}
+
+.input::placeholder {
+  color: #8a98a3;
+  opacity: 1;
+}
+
 .question-image-wrap {
   display: grid;
   place-items: center;
