@@ -390,8 +390,11 @@ as $$
 begin
   delete from public.answer_aliases where question_id = target_question_id;
 
-  insert into public.answer_aliases (question_id, alias_text, normalized_alias)
-  select target_question_id, value, lower(value)
+  insert into public.answer_aliases (question_id, alias_text, normalized_text)
+  select distinct on (regexp_replace(lower(value), '\s+', '', 'g'))
+    target_question_id,
+    trim(value),
+    regexp_replace(lower(value), '\s+', '', 'g')
   from unnest(alias_texts) as value
   where length(trim(value)) > 0;
 end;

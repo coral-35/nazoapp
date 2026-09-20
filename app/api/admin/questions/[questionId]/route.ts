@@ -27,7 +27,7 @@ export async function PATCH(request: Request, context: Context) {
   };
   try { body = await request.json(); } catch { return jsonError("リクエスト形式が正しくありません。"); }
   const supabase = getSupabaseAdmin();
-  const { data: question } = await supabase.from("questions").select("mode").eq("id", questionId).eq("event_id", eventId).single();
+  const { data: question } = await supabase.from("questions").select("mode, image_path, image_url").eq("id", questionId).eq("event_id", eventId).single();
   if (!question) return jsonError("問題候補が見つかりません。", 404);
   const mode = body.mode ?? question.mode;
   if (!isValidQuestionMode(mode)) return jsonError("問題モードが正しくありません。");
@@ -53,8 +53,8 @@ export async function PATCH(request: Request, context: Context) {
     mode,
     time_limit_ms: timeLimitMs,
     max_attempts: maxAttempts,
-    image_path: typeof body.imagePath === "string" && body.imagePath.trim() ? body.imagePath.trim() : null,
-    image_url: typeof body.imageUrl === "string" && body.imageUrl.trim() ? body.imageUrl.trim() : null,
+    image_path: typeof body.imagePath === "string" && body.imagePath.trim() ? body.imagePath.trim() : question.image_path,
+    image_url: typeof body.imageUrl === "string" && body.imageUrl.trim() ? body.imageUrl.trim() : question.image_url,
     is_practice: body.isPractice === true
   };
   const { data, error } = await supabase.from("questions").update(updates).eq("id", questionId).eq("event_id", eventId).select("id").single();

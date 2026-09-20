@@ -1,9 +1,3 @@
-alter table public.event_settings
-  add column if not exists set_question_counts jsonb not null default '[7]'::jsonb;
-
-alter table public.questions
-  add column if not exists is_practice boolean not null default false;
-
 create or replace function public.replace_question_answer_aliases(
   target_question_id uuid,
   alias_texts text[]
