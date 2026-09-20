@@ -20,6 +20,30 @@ returning id;
 
 返されたIDを `DEFAULT_EVENT_ID` に設定します。`auth.users` に指定したメールアドレスが存在しない場合、イベントは作成されません。
 
+本番ログインでは、Supabase Authentication の出題者ユーザーと、操作対象イベントの所有者が一致している必要があります。`event_settings.created_by` には、ログインに使う `auth.users.id`（Authentication画面の User UID）を設定してください。メールアドレスだけでは権限判定できません。
+
+確認用SQL:
+
+```sql
+select
+  es.id as event_id,
+  es.title,
+  es.created_by,
+  u.id as user_uid,
+  u.email,
+  u.email_confirmed_at
+from public.event_settings es
+left join auth.users u on u.id = es.created_by;
+```
+
+`created_by` と `user_uid` が一致し、`email_confirmed_at` が `null` でなければ、管理者アカウント側の準備は完了です。出題者を作り直した場合は、次のように `created_by` を新しい User UID へ更新します。
+
+```sql
+update public.event_settings
+set created_by = 'Authentication画面のUser UID'
+where id = 'VercelのDEFAULT_EVENT_IDと同じUUID';
+```
+
 環境変数:
 
 ```env
@@ -31,6 +55,17 @@ QUESTION_IMAGE_BUCKET=question-images
 ```
 
 `DEFAULT_EVENT_ID` には作成した `event_settings.id` のUUIDを指定します。未設定・不正なUUIDの場合、参加先が設定されていないエラーになります。サーバー専用の `SUPABASE_SERVICE_ROLE_KEY` に `NEXT_PUBLIC_` を付けないでください。
+
+Vercelでは、Production環境の `DEFAULT_EVENT_ID` と、Supabaseの `event_settings.id` が完全に一致している必要があります。値を変更した後は再デプロイしてください。Vercelの Environment Variables はデプロイ時に読み込まれるため、変更だけでは既存デプロイに反映されません。
+
+Supabaseの Authentication > URL Configuration も、本番URLと合わせます。`Site URL` にはVercelの本番URLを設定し、必要に応じて `Redirect URLs` に同じURLを追加します。Vercel側に `NEXT_PUBLIC_APP_URL` を設定する場合も、この本番URLと同じ値にしておくと、URLまわりの確認がしやすくなります。
+
+本番確認チェック:
+
+- `auth.users.id` と `event_settings.created_by` が一致している
+- `event_settings.id` と Vercel Production の `DEFAULT_EVENT_ID` が一致している
+- Supabase Authentication の `Site URL` / `Redirect URLs` が Vercel本番URLを向いている
+- Vercelの環境変数を変更した後に再デプロイしている
 
 ## ローカル開発
 
