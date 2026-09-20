@@ -626,19 +626,19 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
                 <div className="message notice">出題者が問題を開始するまでお待ちください。</div>
               ) : (
                 <>
-                  <div>
+                  <div className="question-heading-row">
                     <h1 className="question-heading">{formatQuestionPlacement(playState.question.setNumber, playState.question.questionLabel)}</h1>
+                    {imageRevealed && remainingMs !== null ? (
+                      <div className={`timer-row compact ${remainingMs <= 0 ? "timeout" : ""}`} role="timer" aria-live="off">
+                        <span>残り時間</span>
+                        <strong>{(Math.max(0, remainingMs) / 1000).toFixed(1)}秒</strong>
+                      </div>
+                    ) : null}
                   </div>
                   <div className="muted">
                     解答可能回数 {playState.question.maxAttempts}回 / 解答済み{" "}
                     {session?.attemptCount || 0}回 / 残り {remainingAttempts}回
                   </div>
-                  {imageRevealed && remainingMs !== null ? (
-                    <div className={`timer-row ${remainingMs <= 0 ? "timeout" : ""}`} role="timer" aria-live="off">
-                      <span>残り時間</span>
-                      <strong>{(Math.max(0, remainingMs) / 1000).toFixed(1)}秒</strong>
-                    </div>
-                  ) : null}
                   <div className={`question-image-wrap ${imageRevealed ? "" : "preview"}`}>
                     {imageRevealed && playState.question.imageUrl ? (
                       <img

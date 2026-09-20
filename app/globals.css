@@ -316,6 +316,34 @@ input {
   line-height: 1.25;
 }
 
+.question-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 62px;
+}
+
+.timer-row.compact {
+  flex: 0 0 auto;
+  width: 72px;
+  min-height: 76px;
+  padding: 6px 10px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.timer-row.compact span {
+  font-size: 0.72rem;
+}
+
+.timer-row.compact strong {
+  font-size: 1.15rem;
+}
+
 .question-panel .form {
   gap: 9px;
 }
