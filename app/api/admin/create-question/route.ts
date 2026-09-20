@@ -98,10 +98,11 @@ export async function POST(request: Request) {
       time_limit_ms: timeLimitMs,
       max_attempts: maxAttempts,
       order_index: orderIndex,
+      is_adopted: false,
       status: "draft"
     })
     .select(
-      "id, title, image_url, image_path, answer_text, mode, time_limit_ms, max_attempts, order_index, status"
+      "id, title, image_url, image_path, answer_text, mode, time_limit_ms, max_attempts, order_index, is_adopted, status"
     )
     .single();
 

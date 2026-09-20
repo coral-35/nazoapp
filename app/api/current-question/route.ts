@@ -12,6 +12,7 @@ import { isValidRoomCode } from "@/lib/room-code";
 import { getDisplayImageUrl } from "@/lib/question-images";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { hashParticipantToken } from "@/lib/tokens";
+import { questionPlacement } from "@/lib/question-placement";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -64,9 +65,11 @@ export async function GET(request: NextRequest) {
       )
       .eq("id", room.current_question_id)
       .eq("event_id", room.id)
+      .eq("is_adopted", true)
       .single();
 
     if (currentQuestion) {
+      const placement = questionPlacement(currentQuestion.order_index, room.questions_per_set);
       const imageUrl = await getDisplayImageUrl(
         supabase,
         currentQuestion.image_path,
@@ -101,7 +104,8 @@ export async function GET(request: NextRequest) {
         title: currentQuestion.title,
         imageUrl,
         mode: currentQuestion.mode,
-        setNumber: Math.ceil(currentQuestion.order_index / room.questions_per_set),
+        setNumber: placement.setNumber,
+        questionLabel: placement.label,
         orderIndex: currentQuestion.order_index,
         timeLimitMs: currentQuestion.time_limit_ms || DEFAULT_QUESTION_TIME_LIMIT_MS,
         maxAttempts: currentQuestion.max_attempts || DEFAULT_MAX_ATTEMPTS,

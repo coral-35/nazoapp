@@ -41,6 +41,7 @@ export async function GET(request: Request) {
   scores.sort((a, b) => b.correctCount - a.correctCount || a.missingTimeCount - b.missingTimeCount || a.totalTimeMs - b.totalTimeMs);
   const { data: lastQuestion, count: questionCount, error: questionError } = await supabase
     .from("questions").select("order_index", { count: "exact" }).eq("event_id", roomId)
+    .eq("is_adopted", true)
     .order("order_index", { ascending: false }).limit(1);
   if (questionError) return jsonError("問題数を取得できませんでした。", 500);
   return NextResponse.json({ scores, room, questionCount: questionCount || 0,

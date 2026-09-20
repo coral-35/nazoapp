@@ -62,6 +62,7 @@ type PlayState = {
     imageUrl: string | null;
     mode: "normal" | "multiple_choice";
     setNumber: number;
+    questionLabel: string;
     orderIndex: number;
     timeLimitMs: number;
     maxAttempts: number;
@@ -625,7 +626,7 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
               ) : (
                 <>
                   <div>
-                    <div className="muted">セット{playState.question.setNumber}・第{playState.question.orderIndex}問</div>
+                    <div className="muted">セット{playState.question.setNumber}・{playState.question.questionLabel}</div>
                     <h1>{playState.question.title}</h1>
                   </div>
                   <div className="muted">

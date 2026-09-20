@@ -40,6 +40,7 @@ export async function POST(request: Request) {
     .select("id")
     .eq("id", questionId)
     .eq("event_id", roomId)
+    .eq("is_adopted", true)
     .single();
 
   if (questionError || !question) {

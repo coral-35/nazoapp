@@ -34,7 +34,7 @@ export async function GET(request: Request) {
       supabase
         .from("questions")
         .select(
-          "id, title, image_url, image_path, answer_text, mode, time_limit_ms, max_attempts, order_index, status, created_at"
+          "id, title, image_url, image_path, answer_text, mode, time_limit_ms, max_attempts, order_index, is_adopted, status, created_at"
         )
         .eq("event_id", roomId)
         .order("order_index", { ascending: true }),

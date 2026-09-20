@@ -7,7 +7,7 @@ export async function loadResults(roomId: string, questionsPerSet: number, parti
   const submissions: { participant_id: string; question_id: string; is_correct: boolean; answer_elapsed_ms: number | null }[] = [];
   // Page through every row so large rooms are not truncated by the API row limit.
   for (let offset = 0; ; offset += 1000) {
-    const { data, error } = await db.from("questions").select("id, order_index").eq("event_id", roomId).order("id").range(offset, offset + 999);
+    const { data, error } = await db.from("questions").select("id, order_index").eq("event_id", roomId).eq("is_adopted", true).order("id").range(offset, offset + 999);
     if (error) throw new Error("問題集計の取得に失敗しました。");
     questions.push(...data);
     if (data.length < 1000) break;

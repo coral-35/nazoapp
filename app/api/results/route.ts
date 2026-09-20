@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   if (error || !settings) return NextResponse.json({ error: "設定を取得できませんでした。" }, { status: 500 });
   if (!settings.show_results) return NextResponse.json({ error: "結果発表はまだ開始されていません。" }, { status: 403 });
   const { data: participants, error: participantsError } = await db.from("participants").select("id, name").eq("event_id", room.id);
-  const { data: questions, count, error: questionError } = await db.from("questions").select("order_index", { count: "exact" }).eq("event_id", room.id).order("order_index", { ascending: false }).limit(1);
+  const { data: questions, count, error: questionError } = await db.from("questions").select("order_index", { count: "exact" }).eq("event_id", room.id).eq("is_adopted", true).order("order_index", { ascending: false }).limit(1);
   if (participantsError || questionError) return NextResponse.json({ error: "結果を取得できませんでした。" }, { status: 500 });
   const resultsFor = await loadResults(room.id, settings.questions_per_set);
   return NextResponse.json({ room: settings, scores: (participants || []).map(p => ({ ...p, ...resultsFor(p.id) })), questionCount: count || 0,

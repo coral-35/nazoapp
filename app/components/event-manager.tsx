@@ -18,6 +18,7 @@ import {
   MAX_QUESTION_TITLE_LENGTH
 } from "@/lib/input-limits";
 import { questionStatusPresentation, roomStatusPresentation } from "@/lib/status-labels";
+import { questionPlacement } from "@/lib/question-placement";
 
 type RoomDetail = {
   room: {
@@ -43,6 +44,7 @@ type Question = {
   time_limit_ms: number;
   max_attempts: number;
   order_index: number;
+  is_adopted: boolean;
   status: string;
 };
 
@@ -93,6 +95,9 @@ export function EventManager({ roomId }: { roomId: string }) {
   const [maxAttempts, setMaxAttempts] = useState(DEFAULT_MAX_ATTEMPTS);
   const [uploadedImage, setUploadedImage] = useState<UploadedImage | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editAnswer, setEditAnswer] = useState("");
 
   const loadDetail = useCallback(
     async (accessToken: string) => {
@@ -205,7 +210,7 @@ export function EventManager({ roomId }: { roomId: string }) {
       setTimeLimitSeconds(DEFAULT_QUESTION_TIME_LIMIT_MS / 1000);
       setMaxAttempts(DEFAULT_MAX_ATTEMPTS);
       setUploadedImage(null);
-      setNotice("問題を登録しました。");
+      setNotice("問題候補を登録しました。採用すると出題対象になります。");
       await loadDetail(token);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "問題登録に失敗しました。");
@@ -261,6 +266,76 @@ export function EventManager({ roomId }: { roomId: string }) {
       setNotice("セット設定を保存しました。");
     } catch (caught) { setError(caught instanceof Error ? caught.message : "保存に失敗しました。"); }
     finally { setSaving(false); }
+  }
+
+  async function organizeQuestions(questions: Question[], adoptedIds: string[], message: string) {
+    if (!token) return;
+    setSaving(true);
+    setError("");
+    try {
+      const response = await adminFetch("/api/admin/questions/organize", token, {
+        method: "POST",
+        body: JSON.stringify({
+          orderedQuestionIds: questions.map((question) => question.id),
+          adoptedQuestionIds: adoptedIds
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "問題の並び順を保存できませんでした。");
+      await loadDetail(token);
+      setNotice(message);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "問題の並び順を保存できませんでした。");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function moveQuestion(questionId: string, direction: -1 | 1) {
+    if (!detail) return;
+    const questions = [...detail.questions];
+    const index = questions.findIndex((question) => question.id === questionId);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= questions.length) return;
+    [questions[index], questions[target]] = [questions[target], questions[index]];
+    await organizeQuestions(
+      questions,
+      questions.filter((question) => question.is_adopted).map((question) => question.id),
+      "問題の並び順を保存しました。"
+    );
+  }
+
+  async function toggleAdoption(question: Question) {
+    if (!detail) return;
+    const adoptedIds = detail.questions
+      .filter((item) => item.id === question.id ? !question.is_adopted : item.is_adopted)
+      .map((item) => item.id);
+    await organizeQuestions(
+      detail.questions,
+      adoptedIds,
+      question.is_adopted ? "問題を候補に戻しました。" : "問題を採用しました。"
+    );
+  }
+
+  async function saveQuestionEdit(question: Question) {
+    if (!token) return;
+    setSaving(true);
+    setError("");
+    try {
+      const response = await adminFetch(`/api/admin/questions/${question.id}`, token, {
+        method: "PATCH",
+        body: JSON.stringify({ title: editTitle, answerText: editAnswer })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "問題候補を更新できませんでした。");
+      setEditingQuestionId(null);
+      await loadDetail(token);
+      setNotice("問題画像に対応するタイトルと正答を保存しました。");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "問題候補を更新できませんでした。");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleSignOut() {
@@ -346,7 +421,8 @@ export function EventManager({ roomId }: { roomId: string }) {
             <div className="dashboard-grid">
               <div className="stack">
                 <div className="panel stack">
-                  <h2>問題登録</h2>
+                  <h2>問題候補の登録</h2>
+                  <p className="muted">画像・タイトル・正答を1つの問題として登録します。並び替えても画像と正答の対応は維持されます。</p>
                   <form className="form" onSubmit={handleCreateQuestion}>
                     <label className="field">
                       <span>問題タイトル</span>
@@ -404,28 +480,34 @@ export function EventManager({ roomId }: { roomId: string }) {
                       </label>
                     </div>
                     <button className="button" type="submit" disabled={saving || uploading}>
-                      {saving ? "登録中..." : "問題を登録"}
+                      {saving ? "登録中..." : "問題候補を登録"}
                     </button>
                   </form>
                 </div>
 
                 <div className="panel stack">
-                  <h2>問題一覧・進行操作</h2>
+                  <h2>問題候補・採用・並び替え</h2>
+                  <p className="muted">採用した問題は上段にまとまり、上から順に「セット1・A、B…」と自動で割り当てられます。</p>
                   {detail.questions.length === 0 ? (
                     <p className="muted">問題がまだ登録されていません。</p>
                   ) : null}
                   <div className="stack">
-                    {detail.questions.map((question) => (
+                    {detail.questions.map((question, index) => {
+                      const placement = question.is_adopted
+                        ? questionPlacement(question.order_index, detail.room.questions_per_set)
+                        : null;
+                      return (
                       <div className="card stack" key={question.id}>
                         <div className="action-row">
-                          <span
-                            className={`status ${questionStatusPresentation(question.status).tone}`}
-                          >
-                            {questionStatusPresentation(question.status).label}
+                          <span className={`status ${question.is_adopted ? "open" : "waiting"}`}>
+                            {placement ? `セット${placement.setNumber}・${placement.label}` : "候補"}
                           </span>
                           <strong>
-                            セット{Math.ceil(question.order_index / detail.room.questions_per_set)}・第{question.order_index}問 {question.title}
+                            {question.title}
                           </strong>
+                          <span className={`status ${questionStatusPresentation(question.status).tone}`}>
+                            {questionStatusPresentation(question.status).label}
+                          </span>
                         </div>
                         {question.display_image_url ? (
                           <img
@@ -434,12 +516,23 @@ export function EventManager({ roomId }: { roomId: string }) {
                             alt={`${question.title}の画像`}
                           />
                         ) : null}
-                        <div className="muted">
-                          {question.mode === "multiple_choice" ? "4択（A〜D）" : "通常"} / 制限時間{" "}
-                          {formatElapsedTime(question.time_limit_ms)} / 解答可能回数 {question.max_attempts}回 / 正答{" "}
-                          {question.answer_text}
-                        </div>
+                        {editingQuestionId === question.id ? (
+                          <div className="form">
+                            <label className="field"><span>問題タイトル</span><input className="input" value={editTitle} maxLength={MAX_QUESTION_TITLE_LENGTH} onChange={(event) => setEditTitle(event.target.value)} /></label>
+                            <label className="field"><span>この画像の正答</span>{question.mode === "multiple_choice" ? <select className="input" value={editAnswer} onChange={(event) => setEditAnswer(event.target.value)}>{CHOICE_KEYS.map((choice) => <option key={choice}>{choice}</option>)}</select> : <input className="input" value={editAnswer} maxLength={MAX_ANSWER_LENGTH} onChange={(event) => setEditAnswer(event.target.value)} />}</label>
+                            <div className="action-row"><button className="button" type="button" disabled={saving} onClick={() => void saveQuestionEdit(question)}>保存</button><button className="button secondary" type="button" onClick={() => setEditingQuestionId(null)}>キャンセル</button></div>
+                          </div>
+                        ) : (
+                          <div className="muted">
+                            {question.mode === "multiple_choice" ? "4択（A〜D）" : "通常"} / 制限時間 {formatElapsedTime(question.time_limit_ms)} / 解答可能回数 {question.max_attempts}回 / 正答 <strong>{question.answer_text}</strong>
+                          </div>
+                        )}
                         <div className="action-row">
+                          <button className="button secondary" type="button" disabled={saving || index === 0} onClick={() => void moveQuestion(question.id, -1)}>上へ</button>
+                          <button className="button secondary" type="button" disabled={saving || index === detail.questions.length - 1} onClick={() => void moveQuestion(question.id, 1)}>下へ</button>
+                          <button className="button secondary" type="button" disabled={saving} onClick={() => void toggleAdoption(question)}>{question.is_adopted ? "候補に戻す" : "採用する"}</button>
+                          <button className="button secondary" type="button" disabled={saving} onClick={() => { setEditingQuestionId(question.id); setEditTitle(question.title); setEditAnswer(question.answer_text); }}>タイトル・正答を編集</button>
+                          {question.is_adopted ? (
                           <button
                             className="button warning"
                             type="button"
@@ -447,12 +540,13 @@ export function EventManager({ roomId }: { roomId: string }) {
                               runProgressAction(
                                 "/api/admin/start-question",
                                 { roomId, questionId: question.id },
-                                `第${question.order_index}問を開始しますか？`
+                                `セット${placement?.setNumber}・${placement?.label}を開始しますか？`
                               )
                             }
                           >
                             問題を開始
                           </button>
+                          ) : null}
                           {detail.room.current_question_id === question.id ? (
                             <button
                               className="button danger"
@@ -470,7 +564,7 @@ export function EventManager({ roomId }: { roomId: string }) {
                           ) : null}
                         </div>
                       </div>
-                    ))}
+                    );})}
                   </div>
                 </div>
               </div>
