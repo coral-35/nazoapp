@@ -503,7 +503,7 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
       return;
     }
     if (!submittedAnswer) {
-      setMessage(question.mode === "multiple_choice" ? "A〜Dから解答を選択してください。" : "解答を入力してください。");
+      setMessage(question.mode === "multiple_choice" ? "1〜4から解答を選択してください。" : "解答を入力してください。");
       setMessageType("error");
       return;
     }

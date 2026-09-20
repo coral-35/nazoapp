@@ -39,7 +39,7 @@ function client(url, key) {
 }
 
 function normalizeAnswer(value) {
-  return value.trim().normalize("NFKC").toLowerCase();
+  return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
 }
 
 async function main() {

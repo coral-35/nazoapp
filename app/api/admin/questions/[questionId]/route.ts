@@ -39,7 +39,7 @@ export async function PATCH(request: Request, context: Context) {
   const answers = mode === "multiple_choice" ? answerTexts.slice(0, 1) : answerTexts;
   const answerText = answers[0] || "";
   if (!answerText) return jsonError("正答を入力してください。");
-  if (mode === "multiple_choice" && !isChoiceAnswer(answerText)) return jsonError("4択の正答はA〜Dから選択してください。");
+  if (mode === "multiple_choice" && !isChoiceAnswer(answerText)) return jsonError("4択の正答は1〜4から選択してください。");
   if (answers.some((answer) => exceedsTextLimit(answer, MAX_ANSWER_LENGTH))) return jsonError("入力文字数が上限を超えています。");
   const maxAttempts =
     body.maxAttempts === undefined || body.maxAttempts === ""

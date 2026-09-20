@@ -1,5 +1,5 @@
 export function normalizeAnswer(value: string): string {
-  return value.trim().normalize("NFKC").toLowerCase();
+  return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
 }
 
 export const DEFAULT_QUESTION_TIME_LIMIT_MS = 30_000;

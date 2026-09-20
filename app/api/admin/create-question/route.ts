@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   if (!isValidQuestionMode(mode)) return jsonError("問題モードが正しくありません。");
   const answerTexts = normalizedAnswerList(body, mode);
   const answerText = answerTexts[0] || "";
-  if (mode === "multiple_choice" && !isChoiceAnswer(answerText)) return jsonError("4択の正答はA〜Dから選択してください。");
+  if (mode === "multiple_choice" && !isChoiceAnswer(answerText)) return jsonError("4択の正答は1〜4から選択してください。");
   const timeLimitMs = toPositiveInteger(body.timeLimitMs, DEFAULT_QUESTION_TIME_LIMIT_MS);
   const maxAttempts =
     body.maxAttempts === undefined || body.maxAttempts === ""

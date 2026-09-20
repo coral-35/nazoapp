@@ -16,7 +16,7 @@ export function createSampleResults() {
     id: fixtureId(`question:${i}`), event_id: roomId,
     title: `セット${Math.floor(i / 7) + 1}・第${i % 7 + 1}問`,
     mode: i % 2 ? "multiple_choice" : "normal",
-    answer_text: i % 2 ? "A" : "こたえ", normalized_answer: i % 2 ? "a" : "こたえ",
+    answer_text: i % 2 ? "1" : "こたえ", normalized_answer: i % 2 ? "a" : "こたえ",
     order_index: i + 1, status: "closed", time_limit_ms: 30000, max_attempts: 1
   }));
   const submissions = participants.flatMap((participant, p) => questions.map((question, q) => {
@@ -26,7 +26,7 @@ export function createSampleResults() {
     const elapsed = correct
       ? p < 2 ? 3000 + q * 125 : 4500 + (p * 937 + q * 1601) % 24000
       : timeout ? 30000 : 5000 + (p * 733 + q * 971) % 24000;
-    const answer = correct ? question.answer_text : timeout ? "" : question.mode === "multiple_choice" ? "B" : "不正解";
+    const answer = correct ? question.answer_text : timeout ? "" : question.mode === "multiple_choice" ? "2" : "不正解";
     return {
       id: fixtureId(`submission:${p}:${q}`), event_id: roomId, participant_id: participant.id, question_id: question.id,
       submitted_answer: answer, normalized_submitted_answer: answer.toLowerCase(), final_answer: answer,

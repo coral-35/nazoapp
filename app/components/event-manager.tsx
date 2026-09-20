@@ -211,7 +211,7 @@ export function EventManager({ roomId }: { roomId: string }) {
         method: "POST",
         body: JSON.stringify({
           roomId,
-          answerTexts: mode === "multiple_choice" ? [answerTexts[0] || "A"] : cleanAnswerTexts(answerTexts),
+          answerTexts: mode === "multiple_choice" ? [answerTexts[0] || "1"] : cleanAnswerTexts(answerTexts),
           mode,
           timeLimitMs: Math.max(1, Math.round(timeLimitSeconds)) * 1000,
           maxAttempts,
@@ -224,7 +224,7 @@ export function EventManager({ roomId }: { roomId: string }) {
       if (!response.ok) {
         throw new Error(data.error || "問題登録に失敗しました。");
       }
-      setAnswerTexts(mode === "multiple_choice" ? ["A"] : [""]);
+      setAnswerTexts(mode === "multiple_choice" ? ["1"] : [""]);
 
       setTimeLimitSeconds(DEFAULT_QUESTION_TIME_LIMIT_MS / 1000);
       setMaxAttempts(DEFAULT_MAX_ATTEMPTS);
@@ -350,7 +350,7 @@ export function EventManager({ roomId }: { roomId: string }) {
       const response = await adminFetch(`/api/admin/questions/${question.id}`, token, {
         method: "PATCH",
         body: JSON.stringify({
-          answerTexts: editMode === "multiple_choice" ? [editAnswerTexts[0] || "A"] : cleanAnswerTexts(editAnswerTexts),
+          answerTexts: editMode === "multiple_choice" ? [editAnswerTexts[0] || "1"] : cleanAnswerTexts(editAnswerTexts),
           mode: editMode,
           timeLimitMs: Math.max(1, Math.round(editTimeLimitSeconds)) * 1000,
           maxAttempts: editMaxAttempts,
@@ -497,12 +497,12 @@ export function EventManager({ roomId }: { roomId: string }) {
                     {uploadedImage?.imageUrl ? (
                       <img className="question-preview" src={uploadedImage.imageUrl} alt="アップロード画像" />
                     ) : null}
-                    <label className="field"><span>問題モード</span><select className="input" value={mode} onChange={event => { const next = event.target.value as typeof mode; setMode(next); setAnswerTexts(next === "multiple_choice" ? ["A"] : [""]); }}><option value="normal">通常（文字入力）</option><option value="multiple_choice">4択（A〜D）</option></select></label>
-                    {mode === "multiple_choice" ? <p className="muted">選択肢の内容は問題画像にA〜Dで記載してください。</p> : null}
+                    <label className="field"><span>問題モード</span><select className="input" value={mode} onChange={event => { const next = event.target.value as typeof mode; setMode(next); setAnswerTexts(next === "multiple_choice" ? ["1"] : [""]); }}><option value="normal">通常（文字入力）</option><option value="multiple_choice">4択（1〜4）</option></select></label>
+                    {mode === "multiple_choice" ? <p className="muted">選択肢の内容は問題画像に1〜4で記載してください。</p> : null}
                     <label className="field inline-check"><input type="checkbox" checked={isPractice} onChange={event => setIsPractice(event.target.checked)} />例題として扱う（結果に集計しない）</label>
                     <div className="split">
                       {mode === "multiple_choice" ? (
-                        <label className="field"><span>正答</span><select className="input" value={answerTexts[0] || "A"} onChange={event => setAnswerTexts([event.target.value])} required>{CHOICE_KEYS.map(choice => <option key={choice} value={choice}>{choice}</option>)}</select></label>
+                        <label className="field"><span>正答</span><select className="input" value={answerTexts[0] || "1"} onChange={event => setAnswerTexts([event.target.value])} required>{CHOICE_KEYS.map(choice => <option key={choice} value={choice}>{choice}</option>)}</select></label>
                       ) : (
                         <div className="field">
                           <span>正答リスト</span>
@@ -576,10 +576,10 @@ export function EventManager({ roomId }: { roomId: string }) {
                           <div className="form">
                             <label className="field"><span>問題画像を上書き</span><input className="input" type="file" accept="image/*" onChange={(event) => void handleUpload(event, "edit")} /></label>
                             {editImage?.imageUrl ? <img className="question-preview" src={editImage.imageUrl} alt="差し替え画像" /> : null}
-                            <label className="field"><span>問題モード</span><select className="input" value={editMode} onChange={event => { const next = event.target.value as typeof editMode; setEditMode(next); setEditAnswerTexts(next === "multiple_choice" ? ["A"] : [question.answer_text, ...question.answer_aliases]); }}><option value="normal">通常（文字入力）</option><option value="multiple_choice">4択（A〜D）</option></select></label>
+                            <label className="field"><span>問題モード</span><select className="input" value={editMode} onChange={event => { const next = event.target.value as typeof editMode; setEditMode(next); setEditAnswerTexts(next === "multiple_choice" ? ["1"] : [question.answer_text, ...question.answer_aliases]); }}><option value="normal">通常（文字入力）</option><option value="multiple_choice">4択（1〜4）</option></select></label>
                             <label className="field inline-check"><input type="checkbox" checked={editIsPractice} onChange={event => setEditIsPractice(event.target.checked)} />例題として扱う（結果に集計しない）</label>
                             {editMode === "multiple_choice" ? (
-                              <label className="field"><span>正答</span><select className="input" value={editAnswerTexts[0] || "A"} onChange={(event) => setEditAnswerTexts([event.target.value])}>{CHOICE_KEYS.map((choice) => <option key={choice}>{choice}</option>)}</select></label>
+                              <label className="field"><span>正答</span><select className="input" value={editAnswerTexts[0] || "1"} onChange={(event) => setEditAnswerTexts([event.target.value])}>{CHOICE_KEYS.map((choice) => <option key={choice}>{choice}</option>)}</select></label>
                             ) : (
                               <div className="field">
                                 <span>正答リスト</span>
@@ -600,7 +600,7 @@ export function EventManager({ roomId }: { roomId: string }) {
                           </div>
                         ) : (
                           <div className="muted">
-                            {question.mode === "multiple_choice" ? "4択（A〜D）" : "通常"} / 制限時間 {formatElapsedTime(question.time_limit_ms)} / 解答可能回数 {question.max_attempts}回 / 正答 <strong>{[question.answer_text, ...question.answer_aliases].join(" / ")}</strong>
+                            {question.mode === "multiple_choice" ? "4択（1〜4）" : "通常"} / 制限時間 {formatElapsedTime(question.time_limit_ms)} / 解答可能回数 {question.max_attempts}回 / 正答 <strong>{[question.answer_text, ...question.answer_aliases].join(" / ")}</strong>
                           </div>
                         )}
                         <div className="action-row">

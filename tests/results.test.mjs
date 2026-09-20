@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { normalizeAnswer } from "../lib/answer.ts";
 import { aggregateResults, isValidQuestionMode, isChoiceAnswer } from "../lib/results.ts";
 
 const questions = Array.from({ length: 15 }, (_, i) => ({ id: String(i + 1), order_index: i + 1 }));
@@ -44,10 +45,16 @@ test("empty results and unanswered sets stay zero; invalid set sizes are rejecte
   for (const size of [0, -1, 1.5, 1001, NaN]) assert.throws(() => aggregateResults(questions, [], size));
 });
 
-test("normal and A-D choice modes validate registration values", () => {
+test("normal and 1-4 choice modes validate registration values", () => {
   assert.equal(isValidQuestionMode("normal"), true);
   assert.equal(isValidQuestionMode("multiple_choice"), true);
   assert.equal(isValidQuestionMode("unknown"), false);
-  for (const key of ["A", "B", "C", "D"]) assert.equal(isChoiceAnswer(key), true);
+  for (const key of ["1", "2", "3", "4"]) assert.equal(isChoiceAnswer(key), true);
   for (const key of ["", "E", "AB", "a"]) assert.equal(isChoiceAnswer(key), false);
+});
+
+test("answer normalization removes spaces and lowercases ASCII words", () => {
+  assert.equal(normalizeAnswer(" Apple  Pie "), "applepie");
+  assert.equal(normalizeAnswer("Ａ Ｂ Ｃ"), "abc");
+  assert.equal(normalizeAnswer("  な ぞ と き  "), "なぞとき");
 });

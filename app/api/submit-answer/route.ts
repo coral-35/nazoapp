@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (question.mode === "multiple_choice" && finalAnswer && !isChoiceAnswer(finalAnswer)) {
-    return answerError("ANSWER_INVALID", "4択の解答はA〜Dから選択してください。");
+    return answerError("ANSWER_INVALID", "4択の解答は1〜4から選択してください。");
   }
 
   const timeLimitMs = toPositiveInteger(question.time_limit_ms, DEFAULT_QUESTION_TIME_LIMIT_MS);

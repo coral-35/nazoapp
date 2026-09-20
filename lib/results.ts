@@ -51,7 +51,7 @@ export function aggregateResults(questions: ResultQuestion[], submissions: Resul
 }
 
 export const QUESTION_MODES = ["normal", "multiple_choice"] as const;
-export const CHOICE_KEYS = ["A", "B", "C", "D"] as const;
+export const CHOICE_KEYS = ["1", "2", "3", "4"] as const;
 export function isValidQuestionMode(mode: unknown): mode is typeof QUESTION_MODES[number] {
   return mode === "normal" || mode === "multiple_choice";
 }
