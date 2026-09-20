@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { ensureRoomOwner, requireAdminUser } from "@/lib/admin-auth";
 import { jsonError } from "@/lib/http";
 import { getDisplayImageUrl } from "@/lib/question-images";
+import { normalizeSetQuestionCounts } from "@/lib/question-placement";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
   const supabase = getSupabaseAdmin();
   const { data: room, error: roomError } = await supabase
     .from("event_settings")
-    .select("id, room_code, title, status, current_question_id, questions_per_set, show_results, created_at")
+    .select("id, room_code, title, status, current_question_id, questions_per_set, set_question_counts, show_results, created_at")
     .eq("id", roomId)
     .single();
 
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
       supabase
         .from("questions")
         .select(
-          "id, title, image_url, image_path, answer_text, mode, time_limit_ms, max_attempts, order_index, is_adopted, status, created_at"
+          "id, title, image_url, image_path, answer_text, mode, time_limit_ms, max_attempts, order_index, is_adopted, is_practice, status, created_at"
         )
         .eq("event_id", roomId)
         .order("order_index", { ascending: true }),
@@ -53,10 +54,22 @@ export async function GET(request: Request) {
     ]);
 
   if (questionsError || participantsError || submissionsError) return jsonError("イベント詳細を取得できませんでした。", 500);
+  const questionIds = (questions || []).map((question) => question.id);
+  const { data: answerAliases, error: aliasesError } = questionIds.length
+    ? await supabase.from("answer_aliases").select("question_id, alias_text").in("question_id", questionIds)
+    : { data: [], error: null };
+  if (aliasesError) return jsonError("正答リストを取得できませんでした。", 500);
+  const aliasesByQuestion = new Map<string, string[]>();
+  for (const alias of answerAliases || []) {
+    const values = aliasesByQuestion.get(alias.question_id) || [];
+    values.push(alias.alias_text);
+    aliasesByQuestion.set(alias.question_id, values);
+  }
 
   const questionsWithSignedImages = await Promise.all(
     (questions || []).map(async (question) => ({
       ...question,
+      answer_aliases: aliasesByQuestion.get(question.id) || [],
       display_image_url: await getDisplayImageUrl(
         supabase,
         question.image_path,
@@ -65,9 +78,10 @@ export async function GET(request: Request) {
     }))
   );
 
-  const resultsFor = await loadResults(roomId, room.questions_per_set);
+  const setQuestionCounts = normalizeSetQuestionCounts(room.set_question_counts, room.questions_per_set);
+  const resultsFor = await loadResults(roomId, setQuestionCounts);
   return NextResponse.json({
-    room,
+    room: { ...room, set_question_counts: setQuestionCounts },
     questions: questionsWithSignedImages,
     participants: (participants || []).map(p => ({ ...p, results: resultsFor(p.id) })),
     submissions: submissions || []
@@ -82,11 +96,18 @@ export async function PATCH(request: Request) {
   if (!owner.ok) return jsonError(owner.message, owner.status);
   let body;
   try { body = await request.json(); } catch { return jsonError("リクエスト形式が正しくありません。"); }
-  const updates: { questions_per_set?: number; show_results?: boolean } = {};
+  const updates: { questions_per_set?: number; set_question_counts?: number[]; show_results?: boolean } = {};
   if (body?.questionsPerSet !== undefined) {
     const size = body.questionsPerSet;
     if (!Number.isInteger(size) || size < 1 || size > 1000) return jsonError("1セットの問題数は1〜1000の整数で指定してください。");
     updates.questions_per_set = size;
+    updates.set_question_counts = [size];
+  }
+  if (body?.setQuestionCounts !== undefined) {
+    const counts = normalizeSetQuestionCounts(body.setQuestionCounts);
+    if (!Array.isArray(body.setQuestionCounts) || counts.length !== body.setQuestionCounts.length) return jsonError("セットごとの問題数は1〜1000の整数で指定してください。");
+    updates.set_question_counts = counts;
+    updates.questions_per_set = counts[0];
   }
   if (body?.showResults !== undefined) {
     if (typeof body.showResults !== "boolean") return jsonError("結果表示設定が正しくありません。");

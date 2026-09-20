@@ -12,7 +12,7 @@ import { isValidRoomCode } from "@/lib/room-code";
 import { getDisplayImageUrl } from "@/lib/question-images";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { hashParticipantToken } from "@/lib/tokens";
-import { questionPlacement } from "@/lib/question-placement";
+import { alphabeticQuestionLabel, normalizeSetQuestionCounts, questionPlacementBySetCounts } from "@/lib/question-placement";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   const deviceIdentity = getRequestDeviceIdentity(request);
   const { data: room, error: roomError } = await supabase
     .from("event_settings")
-    .select("id, room_code, title, status, current_question_id, questions_per_set, show_results")
+    .select("id, room_code, title, status, current_question_id, questions_per_set, set_question_counts, show_results")
     .eq("room_code", roomCode)
     .single();
 
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
     const { data: currentQuestion } = await supabase
       .from("questions")
       .select(
-        "id, title, image_url, image_path, answer_text, mode, order_index, status, time_limit_ms, max_attempts"
+        "id, image_url, image_path, answer_text, mode, order_index, is_practice, status, time_limit_ms, max_attempts"
       )
       .eq("id", room.current_question_id)
       .eq("event_id", room.id)
@@ -69,7 +69,29 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (currentQuestion) {
-      const placement = questionPlacement(currentQuestion.order_index, room.questions_per_set);
+      const setQuestionCounts = normalizeSetQuestionCounts(room.set_question_counts, room.questions_per_set);
+      const { data: adoptedQuestions } = await supabase
+        .from("questions")
+        .select("id, order_index, is_practice")
+        .eq("event_id", room.id)
+        .eq("is_adopted", true)
+        .order("order_index", { ascending: true });
+      const scoringSetCounts = (adoptedQuestions || []).reduce<Map<number, number>>((counts, question) => {
+        if (question.is_practice) return counts;
+        const displayPlacement = questionPlacementBySetCounts(question.order_index, setQuestionCounts);
+        counts.set(displayPlacement.setNumber, (counts.get(displayPlacement.setNumber) || 0) + 1);
+        return counts;
+      }, new Map());
+      const scoringCounts = [...scoringSetCounts.entries()].sort((a, b) => a[0] - b[0]).map(([, count]) => count);
+      const scoringOrderIndex = (adoptedQuestions || [])
+        .filter((question) => !question.is_practice && question.order_index <= currentQuestion.order_index)
+        .length;
+      const practiceIndex = (adoptedQuestions || [])
+        .filter((question) => question.is_practice && question.order_index <= currentQuestion.order_index)
+        .length;
+      const placement = currentQuestion.is_practice
+        ? { setNumber: 0, label: alphabeticQuestionLabel(Math.max(0, practiceIndex - 1)) }
+        : questionPlacementBySetCounts(scoringOrderIndex, scoringCounts);
       const imageUrl = await getDisplayImageUrl(
         supabase,
         currentQuestion.image_path,
@@ -101,9 +123,9 @@ export async function GET(request: NextRequest) {
       hasSubmission = Boolean(submissions?.[0]);
       question = {
         id: currentQuestion.id,
-        title: currentQuestion.title,
         imageUrl,
         mode: currentQuestion.mode,
+        isPractice: currentQuestion.is_practice,
         setNumber: placement.setNumber,
         questionLabel: placement.label,
         orderIndex: currentQuestion.order_index,
@@ -123,7 +145,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const resultsFor = await loadResults(room.id, room.questions_per_set, participant.id);
+  const resultsFor = await loadResults(room.id, normalizeSetQuestionCounts(room.set_question_counts, room.questions_per_set), participant.id);
   return attachDeviceCookie(
     NextResponse.json({
       room: {

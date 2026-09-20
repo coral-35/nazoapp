@@ -11,21 +11,34 @@ import { ensureRoomOwner, requireAdminUser } from "@/lib/admin-auth";
 import { jsonError, toPositiveInteger } from "@/lib/http";
 import {
   exceedsTextLimit,
-  MAX_ANSWER_LENGTH,
-  MAX_QUESTION_TITLE_LENGTH
+  MAX_ANSWER_LENGTH
 } from "@/lib/input-limits";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 type CreateQuestionBody = {
   roomId?: string;
-  title?: string;
   answerText?: string;
+  answerTexts?: unknown;
   mode?: unknown;
   timeLimitMs?: number | string;
   maxAttempts?: number | string;
   imageUrl?: string;
   imagePath?: string;
+  isPractice?: unknown;
 };
+
+function normalizedAnswerList(body: CreateQuestionBody, mode: "normal" | "multiple_choice") {
+  const raw = Array.isArray(body.answerTexts) ? body.answerTexts : [body.answerText];
+  const answers = raw
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const uniqueAnswers = [...new Set(answers)];
+  if (mode === "multiple_choice") {
+    return uniqueAnswers.slice(0, 1);
+  }
+  return uniqueAnswers;
+}
 
 export async function POST(request: Request) {
   const auth = await requireAdminUser(request);
@@ -41,10 +54,10 @@ export async function POST(request: Request) {
   }
 
   const roomId = defaultRoomId();
-  const title = (body.title || "").trim();
-  const answerText = (body.answerText || "").trim();
   const mode = body.mode ?? "normal";
   if (!isValidQuestionMode(mode)) return jsonError("問題モードが正しくありません。");
+  const answerTexts = normalizedAnswerList(body, mode);
+  const answerText = answerTexts[0] || "";
   if (mode === "multiple_choice" && !isChoiceAnswer(answerText)) return jsonError("4択の正答はA〜Dから選択してください。");
   const timeLimitMs = toPositiveInteger(body.timeLimitMs, DEFAULT_QUESTION_TIME_LIMIT_MS);
   const maxAttempts =
@@ -53,16 +66,13 @@ export async function POST(request: Request) {
       : Number(body.maxAttempts);
   const imageUrl = (body.imageUrl || "").trim() || null;
   const imagePath = (body.imagePath || "").trim() || null;
+  const isPractice = body.isPractice === true;
 
-  if (!roomId || !title || !answerText) {
-    return jsonError("イベント、問題タイトル、正答を入力してください。");
+  if (!roomId || !answerText) {
+    return jsonError("イベントと正答を入力してください。");
   }
 
-  if (exceedsTextLimit(title, MAX_QUESTION_TITLE_LENGTH)) {
-    return jsonError(`問題タイトルは${MAX_QUESTION_TITLE_LENGTH}文字以内で入力してください。`);
-  }
-
-  if (exceedsTextLimit(answerText, MAX_ANSWER_LENGTH)) {
+  if (answerTexts.some((answer) => exceedsTextLimit(answer, MAX_ANSWER_LENGTH))) {
     return jsonError(`正答は${MAX_ANSWER_LENGTH}文字以内で入力してください。`);
   }
 
@@ -85,6 +95,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   const orderIndex = Number(lastQuestion?.order_index || 0) + 1;
+  const title = isPractice ? "例題" : `問題${orderIndex}`;
   const { data, error } = await supabase
     .from("questions")
     .insert({
@@ -99,16 +110,23 @@ export async function POST(request: Request) {
       max_attempts: maxAttempts,
       order_index: orderIndex,
       is_adopted: false,
+      is_practice: isPractice,
       status: "draft"
     })
     .select(
-      "id, title, image_url, image_path, answer_text, mode, time_limit_ms, max_attempts, order_index, is_adopted, status"
+      "id, title, image_url, image_path, answer_text, mode, time_limit_ms, max_attempts, order_index, is_adopted, is_practice, status"
     )
     .single();
 
   if (error || !data) {
     return jsonError("問題登録に失敗しました。", 500);
   }
+
+  const { error: aliasError } = await supabase.rpc("replace_question_answer_aliases", {
+    target_question_id: data.id,
+    alias_texts: answerTexts.slice(1)
+  });
+  if (aliasError) return jsonError("正答リストの保存に失敗しました。", 500);
 
   return NextResponse.json({ question: data });
 }

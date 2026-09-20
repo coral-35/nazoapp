@@ -7,11 +7,27 @@ export type ResultSubmission = {
 export type ResultTotals = { correctCount: number; totalTimeMs: number; missingTimeCount: number };
 export type Results = ResultTotals & { sets: (ResultTotals & { setNumber: number })[] };
 
-export function aggregateResults(questions: ResultQuestion[], submissions: ResultSubmission[], questionsPerSet: number): Results {
-  if (!Number.isInteger(questionsPerSet) || questionsPerSet < 1 || questionsPerSet > 1000) {
-    throw new Error("セット問題数が不正です。");
+function normalizeResultSetQuestionCounts(value: number | number[]): number[] {
+  const source = Array.isArray(value) ? value : [value];
+  const counts = source.filter((item) => Number.isInteger(item) && item >= 1 && item <= 1000);
+  if (!counts.length || counts.length !== source.length) throw new Error("セット問題数が不正です。");
+  return counts;
+}
+
+function resultQuestionSetNumber(orderIndex: number, setQuestionCounts: number[]) {
+  let remaining = orderIndex;
+  for (let index = 0; index < setQuestionCounts.length; index += 1) {
+    if (remaining <= setQuestionCounts[index]) return index + 1;
+    remaining -= setQuestionCounts[index];
   }
-  const sets = Array.from({ length: Math.ceil(Math.max(0, ...questions.map(q => q.order_index)) / questionsPerSet) }, (_, i) => ({
+  const repeatedSize = setQuestionCounts[setQuestionCounts.length - 1];
+  return setQuestionCounts.length + 1 + Math.floor((remaining - 1) / repeatedSize);
+}
+
+export function aggregateResults(questions: ResultQuestion[], submissions: ResultSubmission[], questionsPerSet: number | number[]): Results {
+  const setQuestionCounts = normalizeResultSetQuestionCounts(questionsPerSet);
+  const setCount = questions.reduce((max, question) => Math.max(max, resultQuestionSetNumber(question.order_index, setQuestionCounts)), 0);
+  const sets = Array.from({ length: setCount }, (_, i) => ({
     setNumber: i + 1, correctCount: 0, totalTimeMs: 0, missingTimeCount: 0
   }));
   const totals: Results = { correctCount: 0, totalTimeMs: 0, missingTimeCount: 0, sets };
@@ -24,7 +40,7 @@ export function aggregateResults(questions: ResultQuestion[], submissions: Resul
   for (const question of questions) {
     const row = correct.get(question.id);
     if (!row) continue;
-    const set = sets[Math.floor((question.order_index - 1) / questionsPerSet)];
+    const set = sets[resultQuestionSetNumber(question.order_index, setQuestionCounts) - 1];
     for (const result of [totals, set]) {
       result.correctCount += 1;
       if (row.answer_elapsed_ms === null) result.missingTimeCount += 1;

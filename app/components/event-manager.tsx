@@ -13,12 +13,9 @@ import {
   formatElapsedTime
 } from "@/lib/answer";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import {
-  MAX_ANSWER_LENGTH,
-  MAX_QUESTION_TITLE_LENGTH
-} from "@/lib/input-limits";
+import { MAX_ANSWER_LENGTH } from "@/lib/input-limits";
 import { questionStatusPresentation, roomStatusPresentation } from "@/lib/status-labels";
-import { questionPlacement } from "@/lib/question-placement";
+import { alphabeticQuestionLabel, questionPlacementBySetCounts } from "@/lib/question-placement";
 
 type RoomDetail = {
   room: {
@@ -28,6 +25,7 @@ type RoomDetail = {
     status: string;
     current_question_id: string | null;
     questions_per_set: number;
+    set_question_counts: number[];
     show_results: boolean;
   };
   questions: Question[];
@@ -39,12 +37,16 @@ type Question = {
   id: string;
   title: string;
   display_image_url: string | null;
+  image_path: string | null;
+  image_url: string | null;
   answer_text: string;
+  answer_aliases: string[];
   mode: "normal" | "multiple_choice";
   time_limit_ms: number;
   max_attempts: number;
   order_index: number;
   is_adopted: boolean;
+  is_practice: boolean;
   status: string;
 };
 
@@ -77,6 +79,17 @@ type UploadedImage = {
   imageUrl: string | null;
 };
 
+function cleanAnswerTexts(values: string[]) {
+  return values.map((value) => value.trim()).filter(Boolean);
+}
+
+function parseSetQuestionCounts(value: string) {
+  return value
+    .split(/[,、\s]+/)
+    .map((item) => Number(item))
+    .filter((item) => Number.isInteger(item) && item >= 1 && item <= 1000);
+}
+
 export function EventManager({ roomId }: { roomId: string }) {
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
@@ -85,10 +98,11 @@ export function EventManager({ roomId }: { roomId: string }) {
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [questionTitle, setQuestionTitle] = useState("");
-  const [answerText, setAnswerText] = useState("");
+  const [answerTexts, setAnswerTexts] = useState([""]);
   const [mode, setMode] = useState<"normal" | "multiple_choice">("normal");
   const [questionsPerSet, setQuestionsPerSet] = useState(7);
+  const [setQuestionCountsText, setSetQuestionCountsText] = useState("7");
+  const [isPractice, setIsPractice] = useState(false);
   const [timeLimitSeconds, setTimeLimitSeconds] = useState(
     DEFAULT_QUESTION_TIME_LIMIT_MS / 1000
   );
@@ -96,8 +110,12 @@ export function EventManager({ roomId }: { roomId: string }) {
   const [uploadedImage, setUploadedImage] = useState<UploadedImage | null>(null);
   const [uploading, setUploading] = useState(false);
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editAnswer, setEditAnswer] = useState("");
+  const [editMode, setEditMode] = useState<"normal" | "multiple_choice">("normal");
+  const [editAnswerTexts, setEditAnswerTexts] = useState([""]);
+  const [editTimeLimitSeconds, setEditTimeLimitSeconds] = useState(DEFAULT_QUESTION_TIME_LIMIT_MS / 1000);
+  const [editMaxAttempts, setEditMaxAttempts] = useState(DEFAULT_MAX_ATTEMPTS);
+  const [editImage, setEditImage] = useState<UploadedImage | null>(null);
+  const [editIsPractice, setEditIsPractice] = useState(false);
 
   const loadDetail = useCallback(
     async (accessToken: string) => {
@@ -111,6 +129,7 @@ export function EventManager({ roomId }: { roomId: string }) {
       }
       setDetail(data);
       setQuestionsPerSet(data.room.questions_per_set);
+      setSetQuestionCountsText((data.room.set_question_counts || [data.room.questions_per_set]).join(","));
     },
     [roomId, router]
   );
@@ -146,7 +165,7 @@ export function EventManager({ roomId }: { roomId: string }) {
     };
   }, [loadDetail, router]);
 
-  async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
+  async function handleUpload(event: ChangeEvent<HTMLInputElement>, target: "new" | "edit" = "new") {
     const file = event.target.files?.[0];
     if (!file || !token) {
       return;
@@ -167,7 +186,8 @@ export function EventManager({ roomId }: { roomId: string }) {
       if (!response.ok) {
         throw new Error(data.error || "画像アップロードに失敗しました。");
       }
-      setUploadedImage(data);
+      if (target === "edit") setEditImage(data);
+      else setUploadedImage(data);
       setNotice("画像をアップロードしました。");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "画像アップロードに失敗しました。");
@@ -191,25 +211,25 @@ export function EventManager({ roomId }: { roomId: string }) {
         method: "POST",
         body: JSON.stringify({
           roomId,
-          title: questionTitle,
-          answerText,
+          answerTexts: mode === "multiple_choice" ? [answerTexts[0] || "A"] : cleanAnswerTexts(answerTexts),
           mode,
           timeLimitMs: Math.max(1, Math.round(timeLimitSeconds)) * 1000,
           maxAttempts,
           imagePath: uploadedImage?.imagePath,
-          imageUrl: uploadedImage?.imageUrl
+          imageUrl: uploadedImage?.imageUrl,
+          isPractice
         })
       });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || "問題登録に失敗しました。");
       }
-      setQuestionTitle("");
-      setAnswerText(mode === "multiple_choice" ? "A" : "");
+      setAnswerTexts(mode === "multiple_choice" ? ["A"] : [""]);
 
       setTimeLimitSeconds(DEFAULT_QUESTION_TIME_LIMIT_MS / 1000);
       setMaxAttempts(DEFAULT_MAX_ATTEMPTS);
       setUploadedImage(null);
+      setIsPractice(false);
       setNotice("問題候補を登録しました。採用すると出題対象になります。");
       await loadDetail(token);
     } catch (caught) {
@@ -256,10 +276,15 @@ export function EventManager({ roomId }: { roomId: string }) {
 
   async function saveSetSize() {
     if (!token) return;
+    const setQuestionCounts = parseSetQuestionCounts(setQuestionCountsText);
+    if (!setQuestionCounts.length) {
+      setError("セットごとの問題数を1〜1000の整数で入力してください。");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
-      const response = await adminFetch("/api/admin/event", token, { method: "PATCH", body: JSON.stringify({ questionsPerSet }) });
+      const response = await adminFetch("/api/admin/event", token, { method: "PATCH", body: JSON.stringify({ setQuestionCounts }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "セット設定を保存できませんでした。");
       await loadDetail(token);
@@ -324,18 +349,37 @@ export function EventManager({ roomId }: { roomId: string }) {
     try {
       const response = await adminFetch(`/api/admin/questions/${question.id}`, token, {
         method: "PATCH",
-        body: JSON.stringify({ title: editTitle, answerText: editAnswer })
+        body: JSON.stringify({
+          answerTexts: editMode === "multiple_choice" ? [editAnswerTexts[0] || "A"] : cleanAnswerTexts(editAnswerTexts),
+          mode: editMode,
+          timeLimitMs: Math.max(1, Math.round(editTimeLimitSeconds)) * 1000,
+          maxAttempts: editMaxAttempts,
+          imagePath: editImage?.imagePath ?? question.image_path,
+          imageUrl: editImage?.imageUrl ?? question.image_url,
+          isPractice: editIsPractice
+        })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "問題候補を更新できませんでした。");
       setEditingQuestionId(null);
+      setEditImage(null);
       await loadDetail(token);
-      setNotice("問題画像に対応するタイトルと正答を保存しました。");
+      setNotice("問題設定を保存しました。");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "問題候補を更新できませんでした。");
     } finally {
       setSaving(false);
     }
+  }
+
+  function startQuestionEdit(question: Question) {
+    setEditingQuestionId(question.id);
+    setEditMode(question.mode);
+    setEditAnswerTexts(question.mode === "multiple_choice" ? [question.answer_text] : [question.answer_text, ...question.answer_aliases]);
+    setEditTimeLimitSeconds(Math.max(1, Math.round(question.time_limit_ms / 1000)));
+    setEditMaxAttempts(question.max_attempts);
+    setEditImage(null);
+    setEditIsPractice(question.is_practice);
   }
 
   async function handleSignOut() {
@@ -347,8 +391,29 @@ export function EventManager({ roomId }: { roomId: string }) {
   const participantNameById = new Map(
     (detail?.participants || []).map((participant) => [participant.id, participant.name])
   );
+  const adoptedQuestions = detail?.questions.filter((question) => question.is_adopted).sort((a, b) => a.order_index - b.order_index) || [];
+  const displaySetCounts = detail?.room.set_question_counts || [detail?.room.questions_per_set || 7];
+  const scoringSetCounts = adoptedQuestions.reduce<Map<number, number>>((counts, question) => {
+    if (question.is_practice) return counts;
+    const placement = questionPlacementBySetCounts(question.order_index, displaySetCounts);
+    counts.set(placement.setNumber, (counts.get(placement.setNumber) || 0) + 1);
+    return counts;
+  }, new Map());
+  const scoringCounts = [...scoringSetCounts.entries()].sort((a, b) => a[0] - b[0]).map(([, count]) => count);
+  function displayPlacementFor(question: Question) {
+    if (!question.is_adopted) return null;
+    if (question.is_practice) {
+      const practiceIndex = adoptedQuestions.filter((item) => item.is_practice && item.order_index <= question.order_index).length;
+      return { setNumber: 0, label: alphabeticQuestionLabel(Math.max(0, practiceIndex - 1)) };
+    }
+    const scoringOrderIndex = adoptedQuestions.filter((item) => !item.is_practice && item.order_index <= question.order_index).length;
+    return questionPlacementBySetCounts(scoringOrderIndex, scoringCounts);
+  }
   const questionTitleById = new Map(
-    (detail?.questions || []).map((question) => [question.id, question.title])
+    (detail?.questions || []).map((question) => {
+      const placement = displayPlacementFor(question);
+      return [question.id, question.is_practice ? `例題・${placement?.label || ""}` : `セット${placement?.setNumber || ""}・${placement?.label || ""}`];
+    })
   );
   const rankedSubmissions = useMemo(() => {
     const rows = detail?.room.current_question_id
@@ -411,7 +476,7 @@ export function EventManager({ roomId }: { roomId: string }) {
                 <Link className="button" href="/admin/results" target="_blank">画面共有用の結果発表を開く</Link>
                 <button className="button secondary" type="button" disabled={saving} onClick={() => void switchResults(!detail.room.show_results)}>{detail.room.show_results ? "参加者画面を通常表示に戻す" : "参加者画面を結果発表に切り替える"}</button>
                 <span className="muted">参加者画面：{detail.room.show_results ? "結果発表" : "通常表示"}</span>
-                <label className="field"><span>1セットの問題数（保存すると過去の結果も再集計します）</span><input className="input" type="number" min={1} max={1000} value={questionsPerSet} onChange={event => setQuestionsPerSet(Number(event.target.value))} /></label>
+                <label className="field"><span>セットごとの問題数（例: 1,7,7,7）</span><input className="input" value={setQuestionCountsText} onChange={event => setSetQuestionCountsText(event.target.value)} /></label>
                 <button className="button secondary" type="button" onClick={saveSetSize} disabled={saving}>セット設定を保存</button>
                 <button className="button secondary" type="button" onClick={() => token && void loadDetail(token).catch(() => setError("成績を更新できませんでした。"))}>成績を更新</button>
               </div>
@@ -422,18 +487,8 @@ export function EventManager({ roomId }: { roomId: string }) {
               <div className="stack">
                 <div className="panel stack">
                   <h2>問題候補の登録</h2>
-                  <p className="muted">画像・タイトル・正答を1つの問題として登録します。並び替えても画像と正答の対応は維持されます。</p>
+                  <p className="muted">画像・正答・出題設定を1つの問題として登録します。例題は成績と結果発表から除外されます。</p>
                   <form className="form" onSubmit={handleCreateQuestion}>
-                    <label className="field">
-                      <span>問題タイトル</span>
-                      <input
-                        className="input"
-                        value={questionTitle}
-                        onChange={(event) => setQuestionTitle(event.target.value)}
-                        maxLength={MAX_QUESTION_TITLE_LENGTH}
-                        required
-                      />
-                    </label>
                     <label className="field">
                       <span>問題画像</span>
                       <input className="input" type="file" accept="image/*" onChange={handleUpload} />
@@ -442,19 +497,24 @@ export function EventManager({ roomId }: { roomId: string }) {
                     {uploadedImage?.imageUrl ? (
                       <img className="question-preview" src={uploadedImage.imageUrl} alt="アップロード画像" />
                     ) : null}
-                    <label className="field"><span>問題モード</span><select className="input" value={mode} onChange={event => { const next = event.target.value as typeof mode; setMode(next); setAnswerText(next === "multiple_choice" ? "A" : ""); }}><option value="normal">通常（文字入力）</option><option value="multiple_choice">4択（A〜D）</option></select></label>
+                    <label className="field"><span>問題モード</span><select className="input" value={mode} onChange={event => { const next = event.target.value as typeof mode; setMode(next); setAnswerTexts(next === "multiple_choice" ? ["A"] : [""]); }}><option value="normal">通常（文字入力）</option><option value="multiple_choice">4択（A〜D）</option></select></label>
                     {mode === "multiple_choice" ? <p className="muted">選択肢の内容は問題画像にA〜Dで記載してください。</p> : null}
+                    <label className="field inline-check"><input type="checkbox" checked={isPractice} onChange={event => setIsPractice(event.target.checked)} />例題として扱う（結果に集計しない）</label>
                     <div className="split">
-                      <label className="field">
-                        <span>正答</span>
-                        {mode === "multiple_choice" ? <select className="input" value={answerText} onChange={event => setAnswerText(event.target.value)} required>{CHOICE_KEYS.map(choice => <option key={choice} value={choice}>{choice}</option>)}</select> : <input
-                          className="input"
-                          value={answerText}
-                          onChange={(event) => setAnswerText(event.target.value)}
-                          maxLength={MAX_ANSWER_LENGTH}
-                          required
-                        />}
-                      </label>
+                      {mode === "multiple_choice" ? (
+                        <label className="field"><span>正答</span><select className="input" value={answerTexts[0] || "A"} onChange={event => setAnswerTexts([event.target.value])} required>{CHOICE_KEYS.map(choice => <option key={choice} value={choice}>{choice}</option>)}</select></label>
+                      ) : (
+                        <div className="field">
+                          <span>正答リスト</span>
+                          {answerTexts.map((answer, answerIndex) => (
+                            <div className="action-row" key={answerIndex}>
+                              <input className="input" value={answer} onChange={event => setAnswerTexts(values => values.map((item, index) => index === answerIndex ? event.target.value : item))} maxLength={MAX_ANSWER_LENGTH} required={answerIndex === 0} />
+                              <button className="button secondary" type="button" disabled={answerTexts.length === 1} onClick={() => setAnswerTexts(values => values.filter((_, index) => index !== answerIndex))}>削除</button>
+                            </div>
+                          ))}
+                          <button className="button secondary" type="button" onClick={() => setAnswerTexts(values => [...values, ""])}>正答を追加</button>
+                        </div>
+                      )}
                       <label className="field">
                         <span>制限時間（秒）</span>
                         <input
@@ -493,18 +553,14 @@ export function EventManager({ roomId }: { roomId: string }) {
                   ) : null}
                   <div className="stack">
                     {detail.questions.map((question, index) => {
-                      const placement = question.is_adopted
-                        ? questionPlacement(question.order_index, detail.room.questions_per_set)
-                        : null;
+                      const placement = displayPlacementFor(question);
                       return (
                       <div className="card stack" key={question.id}>
                         <div className="action-row">
                           <span className={`status ${question.is_adopted ? "open" : "waiting"}`}>
-                            {placement ? `セット${placement.setNumber}・${placement.label}` : "候補"}
+                            {placement ? `${question.is_practice ? "例題" : `セット${placement.setNumber}`}・${placement.label}` : "候補"}
                           </span>
-                          <strong>
-                            {question.title}
-                          </strong>
+                          {question.is_practice ? <span className="status waiting">例題</span> : null}
                           <span className={`status ${questionStatusPresentation(question.status).tone}`}>
                             {questionStatusPresentation(question.status).label}
                           </span>
@@ -513,25 +569,45 @@ export function EventManager({ roomId }: { roomId: string }) {
                           <img
                             className="question-preview"
                             src={question.display_image_url}
-                            alt={`${question.title}の画像`}
+                            alt="問題画像"
                           />
                         ) : null}
                         {editingQuestionId === question.id ? (
                           <div className="form">
-                            <label className="field"><span>問題タイトル</span><input className="input" value={editTitle} maxLength={MAX_QUESTION_TITLE_LENGTH} onChange={(event) => setEditTitle(event.target.value)} /></label>
-                            <label className="field"><span>この画像の正答</span>{question.mode === "multiple_choice" ? <select className="input" value={editAnswer} onChange={(event) => setEditAnswer(event.target.value)}>{CHOICE_KEYS.map((choice) => <option key={choice}>{choice}</option>)}</select> : <input className="input" value={editAnswer} maxLength={MAX_ANSWER_LENGTH} onChange={(event) => setEditAnswer(event.target.value)} />}</label>
+                            <label className="field"><span>問題画像を上書き</span><input className="input" type="file" accept="image/*" onChange={(event) => void handleUpload(event, "edit")} /></label>
+                            {editImage?.imageUrl ? <img className="question-preview" src={editImage.imageUrl} alt="差し替え画像" /> : null}
+                            <label className="field"><span>問題モード</span><select className="input" value={editMode} onChange={event => { const next = event.target.value as typeof editMode; setEditMode(next); setEditAnswerTexts(next === "multiple_choice" ? ["A"] : [question.answer_text, ...question.answer_aliases]); }}><option value="normal">通常（文字入力）</option><option value="multiple_choice">4択（A〜D）</option></select></label>
+                            <label className="field inline-check"><input type="checkbox" checked={editIsPractice} onChange={event => setEditIsPractice(event.target.checked)} />例題として扱う（結果に集計しない）</label>
+                            {editMode === "multiple_choice" ? (
+                              <label className="field"><span>正答</span><select className="input" value={editAnswerTexts[0] || "A"} onChange={(event) => setEditAnswerTexts([event.target.value])}>{CHOICE_KEYS.map((choice) => <option key={choice}>{choice}</option>)}</select></label>
+                            ) : (
+                              <div className="field">
+                                <span>正答リスト</span>
+                                {editAnswerTexts.map((answer, answerIndex) => (
+                                  <div className="action-row" key={answerIndex}>
+                                    <input className="input" value={answer} maxLength={MAX_ANSWER_LENGTH} required={answerIndex === 0} onChange={(event) => setEditAnswerTexts(values => values.map((item, index) => index === answerIndex ? event.target.value : item))} />
+                                    <button className="button secondary" type="button" disabled={editAnswerTexts.length === 1} onClick={() => setEditAnswerTexts(values => values.filter((_, index) => index !== answerIndex))}>削除</button>
+                                  </div>
+                                ))}
+                                <button className="button secondary" type="button" onClick={() => setEditAnswerTexts(values => [...values, ""])}>正答を追加</button>
+                              </div>
+                            )}
+                            <div className="split">
+                              <label className="field"><span>制限時間（秒）</span><input className="input" type="number" min={1} value={editTimeLimitSeconds} onChange={(event) => setEditTimeLimitSeconds(Number(event.target.value))} /></label>
+                              <label className="field"><span>解答可能回数</span><input className="input" type="number" min={1} max={MAX_ALLOWED_ATTEMPTS} value={editMaxAttempts} onChange={(event) => setEditMaxAttempts(Number(event.target.value))} /></label>
+                            </div>
                             <div className="action-row"><button className="button" type="button" disabled={saving} onClick={() => void saveQuestionEdit(question)}>保存</button><button className="button secondary" type="button" onClick={() => setEditingQuestionId(null)}>キャンセル</button></div>
                           </div>
                         ) : (
                           <div className="muted">
-                            {question.mode === "multiple_choice" ? "4択（A〜D）" : "通常"} / 制限時間 {formatElapsedTime(question.time_limit_ms)} / 解答可能回数 {question.max_attempts}回 / 正答 <strong>{question.answer_text}</strong>
+                            {question.mode === "multiple_choice" ? "4択（A〜D）" : "通常"} / 制限時間 {formatElapsedTime(question.time_limit_ms)} / 解答可能回数 {question.max_attempts}回 / 正答 <strong>{[question.answer_text, ...question.answer_aliases].join(" / ")}</strong>
                           </div>
                         )}
                         <div className="action-row">
                           <button className="button secondary" type="button" disabled={saving || index === 0} onClick={() => void moveQuestion(question.id, -1)}>上へ</button>
                           <button className="button secondary" type="button" disabled={saving || index === detail.questions.length - 1} onClick={() => void moveQuestion(question.id, 1)}>下へ</button>
                           <button className="button secondary" type="button" disabled={saving} onClick={() => void toggleAdoption(question)}>{question.is_adopted ? "候補に戻す" : "採用する"}</button>
-                          <button className="button secondary" type="button" disabled={saving} onClick={() => { setEditingQuestionId(question.id); setEditTitle(question.title); setEditAnswer(question.answer_text); }}>タイトル・正答を編集</button>
+                          <button className="button secondary" type="button" disabled={saving} onClick={() => startQuestionEdit(question)}>設定を編集</button>
                           {question.is_adopted ? (
                           <button
                             className="button warning"
@@ -540,7 +616,7 @@ export function EventManager({ roomId }: { roomId: string }) {
                               runProgressAction(
                                 "/api/admin/start-question",
                                 { roomId, questionId: question.id },
-                                `セット${placement?.setNumber}・${placement?.label}を開始しますか？`
+                                `${question.is_practice ? "例題" : `セット${placement?.setNumber}`}・${placement?.label}を開始しますか？`
                               )
                             }
                           >

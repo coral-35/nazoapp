@@ -29,3 +29,31 @@ export function questionPlacement(orderIndex: number, questionsPerSet: number) {
     label: alphabeticQuestionLabel(index % questionsPerSet)
   };
 }
+
+export function normalizeSetQuestionCounts(value: unknown, fallback = 7): number[] {
+  const source = Array.isArray(value) ? value : [fallback];
+  const counts = source
+    .map((item) => Number(item))
+    .filter((item) => Number.isInteger(item) && item >= 1 && item <= 1000);
+  return counts.length ? counts : [fallback];
+}
+
+export function questionPlacementBySetCounts(orderIndex: number, setQuestionCounts: number[]) {
+  if (!Number.isInteger(orderIndex) || orderIndex < 1) {
+    throw new Error("問題配置が不正です。");
+  }
+  const counts = normalizeSetQuestionCounts(setQuestionCounts);
+  let remaining = orderIndex;
+  for (let index = 0; index < counts.length; index += 1) {
+    if (remaining <= counts[index]) {
+      return { setNumber: index + 1, label: alphabeticQuestionLabel(remaining - 1) };
+    }
+    remaining -= counts[index];
+  }
+  const repeatedSize = counts[counts.length - 1];
+  const extraSetOffset = Math.floor((remaining - 1) / repeatedSize);
+  return {
+    setNumber: counts.length + 1 + extraSetOffset,
+    label: alphabeticQuestionLabel((remaining - 1) % repeatedSize)
+  };
+}

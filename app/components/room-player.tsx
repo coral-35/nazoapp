@@ -59,9 +59,9 @@ type PlayState = {
   };
   question: null | {
     id: string;
-    title: string;
     imageUrl: string | null;
     mode: "normal" | "multiple_choice";
+    isPractice: boolean;
     setNumber: number;
     questionLabel: string;
     orderIndex: number;
@@ -628,7 +628,7 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
                 <>
                   <div className="question-heading-row">
                     <div className="question-heading-copy">
-                      <h1 className="question-heading">{formatQuestionPlacement(playState.question.setNumber, playState.question.questionLabel)}</h1>
+                      <h1 className="question-heading">{playState.question.isPractice ? `例題・${playState.question.questionLabel}` : formatQuestionPlacement(playState.question.setNumber, playState.question.questionLabel)}</h1>
                       <div className="muted">
                         解答可能回数 {playState.question.maxAttempts}回 / 解答済み{" "}
                         {session?.attemptCount || 0}回 / 残り {remainingAttempts}回
@@ -646,7 +646,7 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
                       <img
                         className="question-image"
                         src={playState.question.imageUrl}
-                        alt={`${playState.question.title}の問題画像`}
+                        alt="問題画像"
                       />
                     ) : imageRevealed ? (
                       <div className="muted">この問題には画像がありません。</div>

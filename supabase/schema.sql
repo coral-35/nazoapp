@@ -317,6 +317,7 @@ on conflict (id) do update set
 -- Keep historical score columns for compatibility; new results use submissions only.
 alter table public.event_settings add column if not exists questions_per_set integer not null default 7
   check (questions_per_set between 1 and 1000);
+alter table public.event_settings add column if not exists set_question_counts jsonb not null default '[7]'::jsonb;
 alter table public.questions add column if not exists mode text not null default 'normal'
   check (mode in ('normal', 'multiple_choice'));
 alter table public.questions drop constraint if exists questions_choice_answer_check;
@@ -326,6 +327,7 @@ alter table public.questions add constraint questions_choice_answer_check
 alter table public.event_settings add column if not exists show_results boolean not null default false;
 
 alter table public.questions add column if not exists is_adopted boolean not null default true;
+alter table public.questions add column if not exists is_practice boolean not null default false;
 alter table public.questions drop constraint if exists questions_room_id_order_index_key;
 alter table public.questions drop constraint if exists questions_event_id_order_index_key;
 alter table public.questions add constraint questions_event_id_order_index_key unique (event_id, order_index) deferrable initially deferred;
@@ -376,6 +378,26 @@ end;
 $$;
 
 grant execute on function public.organize_event_questions(uuid, uuid[], uuid[]) to service_role;
+
+create or replace function public.replace_question_answer_aliases(
+  target_question_id uuid,
+  alias_texts text[]
+) returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.answer_aliases where question_id = target_question_id;
+
+  insert into public.answer_aliases (question_id, alias_text, normalized_alias)
+  select target_question_id, value, lower(value)
+  from unnest(alias_texts) as value
+  where length(trim(value)) > 0;
+end;
+$$;
+
+grant execute on function public.replace_question_answer_aliases(uuid, text[]) to service_role;
 
 update public.event_settings
 set title = '謎解き早解き感謝祭';

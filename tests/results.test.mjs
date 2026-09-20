@@ -32,6 +32,12 @@ test("set size changes regroup historical results without changing totals", () =
   assert.equal(result.sets[1].correctCount, 2);
 });
 
+test("set sizes can vary per set", () => {
+  const result = aggregateResults(questions, [row(1, true, 100), row(2, true, 200), row(8, true, 800), row(9, true, 900)], [1, 7]);
+  assert.equal(result.correctCount, 4);
+  assert.deepEqual(result.sets.map(set => set.correctCount), [1, 2, 1]);
+});
+
 test("empty results and unanswered sets stay zero; invalid set sizes are rejected", () => {
   assert.deepEqual(aggregateResults([], [], 7), { correctCount: 0, totalTimeMs: 0, missingTimeCount: 0, sets: [] });
   assert.equal(aggregateResults(questions, [], 7).sets.length, 3);

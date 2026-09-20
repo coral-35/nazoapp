@@ -7,7 +7,7 @@ import { adminFetch, getAdminAccessToken } from "@/lib/admin-client";
 import { rankResults, type ResultParticipant } from "@/lib/results";
 
 type ResultsResponse = {
-  room: { id: string; title: string; room_code: string; questions_per_set: number };
+  room: { id: string; title: string; room_code: string; questions_per_set: number; set_question_counts?: number[] };
   scores: ResultParticipant[];
   questionCount: number;
   setCount: number;
@@ -127,7 +127,7 @@ export function EventResults({ roomId, participantToken }: { roomId: string; par
               <h2>{title}</h2>
               <span className="muted">最終更新 {updatedAt}</span>
             </div>
-            <p className="muted">{selectedSet === null ? "すべてのセットを合算しています。" : `第${(selectedSet - 1) * data.room.questions_per_set + 1}問からの${data.room.questions_per_set}問を集計します（最後のセットは端数を含みます）。`} 同じ正解数・タイムは同順位です。</p>
+            <p className="muted">{selectedSet === null ? "すべてのセットを合算しています。" : "このセットに含まれる採点対象の問題だけを集計します。"} 同じ正解数・タイムは同順位です。</p>
             {hasMissingTime ? <p className="message notice">タイム未記録を含む成績は、同じ正解数の記録済み成績の後に表示します。</p> : null}
             {ranked.length ? <div className="table-wrap">
               <table className="results-table">

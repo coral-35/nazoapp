@@ -3,6 +3,7 @@ import { loadResults } from "@/lib/results.server";
 import { NextResponse } from "next/server";
 import { ensureRoomOwner, requireAdminUser } from "@/lib/admin-auth";
 import { jsonError } from "@/lib/http";
+import { normalizeSetQuestionCounts, questionPlacementBySetCounts } from "@/lib/question-placement";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
@@ -34,16 +35,21 @@ export async function GET(request: Request) {
     return jsonError("成績一覧の取得に失敗しました。", 500);
   }
 
-  const { data: room, error: roomError } = await supabase.from("event_settings").select("id, title, room_code, questions_per_set").eq("id", roomId).single();
+  const { data: room, error: roomError } = await supabase.from("event_settings").select("id, title, room_code, questions_per_set, set_question_counts").eq("id", roomId).single();
   if (roomError || !room) return jsonError("イベント情報を取得できませんでした。", 500);
-  const resultsFor = await loadResults(roomId, room.questions_per_set);
+  const setQuestionCounts = normalizeSetQuestionCounts(room.set_question_counts, room.questions_per_set);
+  const resultsFor = await loadResults(roomId, setQuestionCounts);
   const scores = (data || []).map(p => ({ ...p, ...resultsFor(p.id) }));
   scores.sort((a, b) => b.correctCount - a.correctCount || a.missingTimeCount - b.missingTimeCount || a.totalTimeMs - b.totalTimeMs);
-  const { data: lastQuestion, count: questionCount, error: questionError } = await supabase
-    .from("questions").select("order_index", { count: "exact" }).eq("event_id", roomId)
+  const { data: questions, error: questionError } = await supabase
+    .from("questions").select("order_index, is_practice").eq("event_id", roomId)
     .eq("is_adopted", true)
-    .order("order_index", { ascending: false }).limit(1);
+    .order("order_index", { ascending: true });
   if (questionError) return jsonError("問題数を取得できませんでした。", 500);
-  return NextResponse.json({ scores, room, questionCount: questionCount || 0,
-    setCount: Math.ceil((lastQuestion?.[0]?.order_index || 0) / room.questions_per_set) });
+  const questionCount = (questions || []).filter((question) => !question.is_practice).length;
+  const setCount = new Set((questions || [])
+    .filter((question) => !question.is_practice)
+    .map((question) => questionPlacementBySetCounts(question.order_index, setQuestionCounts).setNumber)).size;
+  return NextResponse.json({ scores, room: { ...room, set_question_counts: setQuestionCounts }, questionCount: questionCount || 0,
+    setCount });
 }

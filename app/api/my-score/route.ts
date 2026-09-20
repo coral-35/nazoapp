@@ -8,6 +8,7 @@ import {
 import { normalizeRoomCode, jsonError } from "@/lib/http";
 import { isValidRoomCode } from "@/lib/room-code";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { normalizeSetQuestionCounts } from "@/lib/question-placement";
 import { hashParticipantToken } from "@/lib/tokens";
 
 export async function GET(request: NextRequest) {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   const deviceIdentity = getRequestDeviceIdentity(request);
   const { data: room } = await supabase
     .from("event_settings")
-    .select("id, questions_per_set")
+    .select("id, questions_per_set, set_question_counts")
     .eq("room_code", roomCode)
     .single();
 
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
     return jsonError("この参加情報は別の端末に紐付いています。", 401);
   }
 
-  const resultsFor = await loadResults(room.id, room.questions_per_set, participant.id);
+  const resultsFor = await loadResults(room.id, normalizeSetQuestionCounts(room.set_question_counts, room.questions_per_set), participant.id);
 
   return attachDeviceCookie(
     NextResponse.json({
