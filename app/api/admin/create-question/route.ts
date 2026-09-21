@@ -31,6 +31,7 @@ function normalizedAnswerList(body: CreateQuestionBody, mode: "normal" | "multip
   const raw = Array.isArray(body.answerTexts) ? body.answerTexts : [body.answerText];
   const answers = raw
     .filter((value): value is string => typeof value === "string")
+    .flatMap((value) => value.split(/\r?\n/))
     .map((value) => value.trim())
     .filter(Boolean);
   const uniqueAnswers = [...new Set(answers)];

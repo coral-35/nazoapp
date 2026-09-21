@@ -87,6 +87,10 @@ function cleanAnswerTexts(values: string[]) {
   return values.map((value) => value.trim()).filter(Boolean);
 }
 
+function splitAnswerText(value: string) {
+  return value.split(/\r?\n/);
+}
+
 function parseSetQuestionCounts(value: string) {
   return value
     .split(/[,、\s]+/)
@@ -543,13 +547,13 @@ export function EventManager({ roomId }: { roomId: string }) {
                       ) : (
                         <div className="field">
                           <span>正答リスト</span>
-                          {answerTexts.map((answer, answerIndex) => (
-                            <div className="action-row" key={answerIndex}>
-                              <input className="input" value={answer} onChange={event => setAnswerTexts(values => values.map((item, index) => index === answerIndex ? event.target.value : item))} maxLength={MAX_ANSWER_LENGTH} required={answerIndex === 0} />
-                              <button className="button secondary" type="button" disabled={answerTexts.length === 1} onClick={() => setAnswerTexts(values => values.filter((_, index) => index !== answerIndex))}>削除</button>
-                            </div>
-                          ))}
-                          <button className="button secondary" type="button" onClick={() => setAnswerTexts(values => [...values, ""])}>正答を追加</button>
+                          <textarea
+                            className="input answer-textarea"
+                            value={answerTexts.join("\n")}
+                            onChange={(event) => setAnswerTexts(splitAnswerText(event.target.value))}
+                            maxLength={MAX_ANSWER_LENGTH * 20}
+                            required
+                          />
                         </div>
                       )}
                       <label className="field">
@@ -696,13 +700,13 @@ export function EventManager({ roomId }: { roomId: string }) {
                             ) : (
                               <div className="field">
                                 <span>正答リスト</span>
-                                {editAnswerTexts.map((answer, answerIndex) => (
-                                  <div className="action-row" key={answerIndex}>
-                                    <input className="input" value={answer} maxLength={MAX_ANSWER_LENGTH} required={answerIndex === 0} onChange={(event) => setEditAnswerTexts(values => values.map((item, index) => index === answerIndex ? event.target.value : item))} />
-                                    <button className="button secondary" type="button" disabled={editAnswerTexts.length === 1} onClick={() => setEditAnswerTexts(values => values.filter((_, index) => index !== answerIndex))}>削除</button>
-                                  </div>
-                                ))}
-                                <button className="button secondary" type="button" onClick={() => setEditAnswerTexts(values => [...values, ""])}>正答を追加</button>
+                                <textarea
+                                  className="input answer-textarea"
+                                  value={editAnswerTexts.join("\n")}
+                                  onChange={(event) => setEditAnswerTexts(splitAnswerText(event.target.value))}
+                                  maxLength={MAX_ANSWER_LENGTH * 20}
+                                  required
+                                />
                               </div>
                             )}
                             <div className="split">

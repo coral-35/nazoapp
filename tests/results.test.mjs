@@ -57,4 +57,7 @@ test("answer normalization removes spaces and lowercases ASCII words", () => {
   assert.equal(normalizeAnswer(" Apple  Pie "), "applepie");
   assert.equal(normalizeAnswer("Ａ Ｂ Ｃ"), "abc");
   assert.equal(normalizeAnswer("  な ぞ と き  "), "なぞとき");
+  assert.equal(normalizeAnswer("ナゾトキ"), "なぞとき");
+  assert.equal(normalizeAnswer("ﾅｿﾞﾄｷ"), "なぞとき");
+  assert.equal(normalizeAnswer("カタカナ ABC"), "かたかなabc");
 });

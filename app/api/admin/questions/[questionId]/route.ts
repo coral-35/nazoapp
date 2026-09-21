@@ -34,6 +34,7 @@ export async function PATCH(request: Request, context: Context) {
   const rawAnswers = Array.isArray(body.answerTexts) ? body.answerTexts : [body.answerText];
   const answerTexts = [...new Set(rawAnswers
     .filter((value): value is string => typeof value === "string")
+    .flatMap((value) => value.split(/\r?\n/))
     .map((value) => value.trim())
     .filter(Boolean))];
   const answers = mode === "multiple_choice" ? answerTexts.slice(0, 1) : answerTexts;

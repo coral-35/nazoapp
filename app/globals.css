@@ -35,7 +35,8 @@ a {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -165,6 +166,11 @@ input {
   background: #fff;
   padding: 10px 12px;
   color: var(--text);
+}
+
+.answer-textarea {
+  min-height: 120px;
+  resize: vertical;
 }
 
 .input:focus {

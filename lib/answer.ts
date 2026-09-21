@@ -1,5 +1,11 @@
 export function normalizeAnswer(value: string): string {
-  return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+  return value
+    .normalize("NFKC")
+    .replace(/[\u30a1-\u30f6]/g, (char) =>
+      String.fromCharCode(char.charCodeAt(0) - 0x60)
+    )
+    .replace(/\s+/g, "")
+    .toLowerCase();
 }
 
 export const DEFAULT_QUESTION_TIME_LIMIT_MS = 30_000;
