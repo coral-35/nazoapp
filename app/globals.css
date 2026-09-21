@@ -214,6 +214,23 @@ input {
   background: var(--danger);
 }
 
+.organizer {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfcfd;
+}
+
+.compact-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.compact-actions .button {
+  min-height: 36px;
+  padding: 6px 10px;
+}
+
 .status {
   display: inline-flex;
   align-items: center;
@@ -489,6 +506,7 @@ td {
   padding: 10px 12px;
   text-align: left;
   vertical-align: top;
+  white-space: pre-line;
 }
 
 th {

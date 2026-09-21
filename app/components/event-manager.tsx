@@ -79,6 +79,10 @@ type UploadedImage = {
   imageUrl: string | null;
 };
 
+type OrganizeDraftQuestion = Question & {
+  draftAdopted: boolean;
+};
+
 function cleanAnswerTexts(values: string[]) {
   return values.map((value) => value.trim()).filter(Boolean);
 }
@@ -116,6 +120,8 @@ export function EventManager({ roomId }: { roomId: string }) {
   const [editMaxAttempts, setEditMaxAttempts] = useState(DEFAULT_MAX_ATTEMPTS);
   const [editImage, setEditImage] = useState<UploadedImage | null>(null);
   const [editIsPractice, setEditIsPractice] = useState(false);
+  const [organizing, setOrganizing] = useState(false);
+  const [organizeDraft, setOrganizeDraft] = useState<OrganizeDraftQuestion[]>([]);
 
   const loadDetail = useCallback(
     async (accessToken: string) => {
@@ -316,30 +322,61 @@ export function EventManager({ roomId }: { roomId: string }) {
     }
   }
 
-  async function moveQuestion(questionId: string, direction: -1 | 1) {
+  function openOrganizer() {
     if (!detail) return;
-    const questions = [...detail.questions];
-    const index = questions.findIndex((question) => question.id === questionId);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= questions.length) return;
-    [questions[index], questions[target]] = [questions[target], questions[index]];
-    await organizeQuestions(
-      questions,
-      questions.filter((question) => question.is_adopted).map((question) => question.id),
-      "問題の並び順を保存しました。"
+    setOrganizeDraft(detail.questions.map((question) => ({ ...question, draftAdopted: question.is_adopted })));
+    setOrganizing(true);
+    setError("");
+    setNotice("");
+  }
+
+  function closeOrganizer() {
+    setOrganizing(false);
+    setOrganizeDraft([]);
+  }
+
+  function moveDraftQuestion(questionId: string, direction: -1 | 1) {
+    setOrganizeDraft((current) => {
+      const next = [...current];
+      const index = next.findIndex((question) => question.id === questionId);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= next.length) return current;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+
+  function toggleDraftAdoption(questionId: string) {
+    setOrganizeDraft((current) =>
+      current.map((question) =>
+        question.id === questionId
+          ? { ...question, draftAdopted: !question.draftAdopted }
+          : question
+      )
     );
   }
 
-  async function toggleAdoption(question: Question) {
-    if (!detail) return;
-    const adoptedIds = detail.questions
-      .filter((item) => item.id === question.id ? !question.is_adopted : item.is_adopted)
-      .map((item) => item.id);
+  async function saveOrganizer() {
+    if (!organizeDraft.length) return;
     await organizeQuestions(
-      detail.questions,
-      adoptedIds,
-      question.is_adopted ? "問題を候補に戻しました。" : "問題を採用しました。"
+      organizeDraft,
+      organizeDraft.filter((question) => question.draftAdopted).map((question) => question.id),
+      "表示順と採用設定を保存しました。"
     );
+    setOrganizing(false);
+    setOrganizeDraft([]);
+  }
+
+  function adoptOnlyNormalQuestions() {
+    setOrganizeDraft((current) => current.map((question) => ({ ...question, draftAdopted: !question.is_practice })));
+  }
+
+  function adoptAllQuestions() {
+    setOrganizeDraft((current) => current.map((question) => ({ ...question, draftAdopted: true })));
+  }
+
+  function returnAllToCandidates() {
+    setOrganizeDraft((current) => current.map((question) => ({ ...question, draftAdopted: false })));
   }
 
   async function saveQuestionEdit(question: Question) {
@@ -547,7 +584,83 @@ export function EventManager({ roomId }: { roomId: string }) {
 
                 <div className="panel stack">
                   <h2>問題候補・採用・並び替え</h2>
-                  <p className="muted">採用した問題は上段にまとまり、上から順に「セット1・A、B…」と自動で割り当てられます。</p>
+                  <p className="muted">採用した問題は上から順に「セット1・A、B…」と自動で割り当てられます。</p>
+                  <div className="action-row">
+                    <button className="button" type="button" onClick={openOrganizer} disabled={saving || detail.questions.length === 0}>
+                      表示順と採用をまとめて編集
+                    </button>
+                  </div>
+                  {organizing ? (
+                    <div className="organizer stack">
+                      <div className="action-row">
+                        <button className="button secondary" type="button" onClick={adoptOnlyNormalQuestions}>例題以外を採用</button>
+                        <button className="button secondary" type="button" onClick={adoptAllQuestions}>すべて採用</button>
+                        <button className="button secondary" type="button" onClick={returnAllToCandidates}>すべて候補</button>
+                      </div>
+                      <div className="table-wrap">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>順</th>
+                              <th>採用</th>
+                              <th>答え</th>
+                              <th>表示</th>
+                              <th>操作</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {organizeDraft.map((question, index) => {
+                              const adoptedBefore = organizeDraft
+                                .slice(0, index + 1)
+                                .filter((item) => item.draftAdopted);
+                              const adoptedOrder = adoptedBefore.length;
+                              const scoringOrder = adoptedBefore.filter((item) => !item.is_practice).length;
+                              const placement = question.draftAdopted
+                                ? question.is_practice
+                                  ? { setNumber: 0, label: alphabeticQuestionLabel(adoptedBefore.filter((item) => item.is_practice).length - 1) }
+                                  : questionPlacementBySetCounts(scoringOrder, displaySetCounts)
+                                : null;
+                              return (
+                                <tr key={question.id}>
+                                  <td>{index + 1}</td>
+                                  <td>
+                                    <input
+                                      aria-label={`${question.answer_text}を採用`}
+                                      type="checkbox"
+                                      checked={question.draftAdopted}
+                                      onChange={() => toggleDraftAdoption(question.id)}
+                                    />
+                                  </td>
+                                  <td>{[question.answer_text, ...question.answer_aliases].join("\n")}</td>
+                                  <td>
+                                    {question.draftAdopted
+                                      ? question.is_practice
+                                        ? `例題・${placement?.label || adoptedOrder}`
+                                        : `セット${placement?.setNumber || ""}・${placement?.label || adoptedOrder}`
+                                      : "候補"}
+                                  </td>
+                                  <td>
+                                    <div className="compact-actions">
+                                      <button className="button secondary" type="button" disabled={index === 0} onClick={() => moveDraftQuestion(question.id, -1)}>上</button>
+                                      <button className="button secondary" type="button" disabled={index === organizeDraft.length - 1} onClick={() => moveDraftQuestion(question.id, 1)}>下</button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="action-row">
+                        <button className="button" type="button" disabled={saving} onClick={() => void saveOrganizer()}>
+                          確定して保存
+                        </button>
+                        <button className="button secondary" type="button" disabled={saving} onClick={closeOrganizer}>
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                   {detail.questions.length === 0 ? (
                     <p className="muted">問題がまだ登録されていません。</p>
                   ) : null}
@@ -604,9 +717,6 @@ export function EventManager({ roomId }: { roomId: string }) {
                           </div>
                         )}
                         <div className="action-row">
-                          <button className="button secondary" type="button" disabled={saving || index === 0} onClick={() => void moveQuestion(question.id, -1)}>上へ</button>
-                          <button className="button secondary" type="button" disabled={saving || index === detail.questions.length - 1} onClick={() => void moveQuestion(question.id, 1)}>下へ</button>
-                          <button className="button secondary" type="button" disabled={saving} onClick={() => void toggleAdoption(question)}>{question.is_adopted ? "候補に戻す" : "採用する"}</button>
                           <button className="button secondary" type="button" disabled={saving} onClick={() => startQuestionEdit(question)}>設定を編集</button>
                           {question.is_adopted ? (
                           <button
