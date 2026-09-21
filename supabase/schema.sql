@@ -125,17 +125,6 @@ create table if not exists public.submissions (
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.score_events (
-  id uuid primary key default gen_random_uuid(),
-  event_id uuid not null references public.event_settings(id) on delete cascade,
-  participant_id uuid not null references public.participants(id) on delete cascade,
-  question_id uuid not null references public.questions(id) on delete cascade,
-  points integer not null check (points > 0),
-  reason text not null default 'correct_answer',
-  created_at timestamptz not null default now(),
-  unique (participant_id, question_id)
-);
-
 alter table public.questions
   add column if not exists time_limit_ms integer not null default 30000,
   add column if not exists max_attempts integer not null default 1;
@@ -242,8 +231,6 @@ where answer_elapsed_ms is not null;
 create unique index if not exists submissions_unique_room_participant_question_final_completed
 on public.submissions (event_id, participant_id, question_id)
 where final_status is not null;
-create index if not exists score_events_event_id_idx on public.score_events(event_id);
-
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -290,7 +277,6 @@ alter table public.participants enable row level security;
 alter table public.questions enable row level security;
 alter table public.answer_aliases enable row level security;
 alter table public.submissions enable row level security;
-alter table public.score_events enable row level security;
 
 grant usage on schema public to service_role;
 grant select, insert, update on table public.event_settings to service_role;
@@ -298,7 +284,6 @@ grant select, insert, update on table public.participants to service_role;
 grant select, insert, update on table public.questions to service_role;
 grant select, insert on table public.answer_aliases to service_role;
 grant select, insert, update on table public.submissions to service_role;
-grant select, insert on table public.score_events to service_role;
 grant execute on function public.increment_participant_score(uuid, integer) to service_role;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)

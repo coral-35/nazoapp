@@ -10,7 +10,6 @@ begin
   where id = target_event_id;
 
   delete from public.submissions where event_id = target_event_id;
-  delete from public.score_events where event_id = target_event_id;
   delete from public.participants where event_id = target_event_id;
   delete from public.questions where event_id = target_event_id;
 end $$;
