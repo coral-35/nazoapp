@@ -456,17 +456,28 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
     return () => window.clearTimeout(timer);
   }, [retryVersion, session?.status, submitFinalResult]);
 
-  function startQuestion() {
+  function revealQuestionImage() {
     const current = sessionRef.current;
     const question = playState?.question;
     if (
       !current ||
       !question ||
-      current.status !== "ready" ||
       imageStatus !== "ready" ||
-      playState?.room.status !== "question_open" ||
-      playState.hasSubmission
+      current.questionId !== question.id ||
+      current.imageRevealed
     ) {
+      return;
+    }
+
+    if (current.status !== "ready") {
+      commitSession({
+        ...current,
+        imageRevealed: true
+      });
+      return;
+    }
+
+    if (playState?.room.status !== "question_open" || playState.hasSubmission) {
       return;
     }
 
@@ -572,6 +583,19 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
 
   const isReady = session?.status === "ready";
   const imageRevealed = Boolean(session?.imageRevealed);
+  const canRevealImage =
+    Boolean(playState?.question) &&
+    Boolean(session) &&
+    !imageRevealed &&
+    session?.questionId === playState?.question?.id &&
+    imageStatus !== "error" &&
+    (
+      (session?.status === "ready" && playState?.room.status === "question_open" && !playState.hasSubmission) ||
+      session?.status === "completed" ||
+      session?.status === "submitting" ||
+      session?.status === "submitted" ||
+      Boolean(playState?.hasSubmission)
+    );
   const canAnswer =
     (session?.status === "ready" || session?.status === "active") &&
     playState?.room.status === "question_open" &&
@@ -657,15 +681,19 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
                     )}
                   </div>
 
-                  {isReady && playState.room.status === "question_open" && !playState.hasSubmission ? (
+                  {canRevealImage ? (
                     <div className="reveal-control">
                       <button
                         className="button"
                         type="button"
-                        onClick={startQuestion}
+                        onClick={revealQuestionImage}
                         disabled={imageStatus !== "ready"}
                       >
-                        {imageStatus === "ready" ? "画像を表示して開始" : "画像を準備中..."}
+                        {imageStatus !== "ready"
+                          ? "画像を準備中..."
+                          : isReady && !playState.hasSubmission
+                            ? "画像を表示して開始"
+                            : "問題画像を表示"}
                       </button>
                     </div>
                   ) : null}
