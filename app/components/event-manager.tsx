@@ -761,18 +761,6 @@ export function EventManager({ roomId }: { roomId: string }) {
 
               <div className="stack">
                 <div className="panel stack">
-                  <h2>参加者の成績（総合・セット別）</h2>
-                  <p className="muted">総合の正解数が多い順、同数なら正解タイム合計が短い順です。タイム未記録がある成績は同正解数の記録済み成績の後に表示します。</p>
-                  {[...detail.participants].sort((a, b) => b.results.correctCount - a.results.correctCount || a.results.missingTimeCount - b.results.missingTimeCount || a.results.totalTimeMs - b.results.totalTimeMs).map((participant, index) => (
-                    <div className="card stack" key={participant.id}>
-                      <h3>{index + 1}. {participant.name}</h3>
-                      <ResultsSummary results={participant.results} />
-                    </div>
-                  ))}
-                  {detail.participants.length === 0 ? <p className="muted">参加者はいません。</p> : null}
-                </div>
-
-                <div className="panel stack">
                   <h2>{detail.room.current_question_id ? "現在問題の解答結果" : "解答結果"}</h2>
                   <div className="table-wrap">
                     <table>
@@ -828,6 +816,18 @@ export function EventManager({ roomId }: { roomId: string }) {
                       </tbody>
                     </table>
                   </div>
+                </div>
+
+                <div className="panel stack">
+                  <h2>参加者の成績（総合・セット別）</h2>
+                  <p className="muted">総合の正解数が多い順、同数なら正解タイム合計が短い順です。タイム未記録がある成績は同正解数の記録済み成績の後に表示します。</p>
+                  {[...detail.participants].sort((a, b) => b.results.correctCount - a.results.correctCount || a.results.missingTimeCount - b.results.missingTimeCount || a.results.totalTimeMs - b.results.totalTimeMs).map((participant, index) => (
+                    <div className="card stack" key={participant.id}>
+                      <h3>{index + 1}. {participant.name}</h3>
+                      <ResultsSummary results={participant.results} />
+                    </div>
+                  ))}
+                  {detail.participants.length === 0 ? <p className="muted">参加者はいません。</p> : null}
                 </div>
               </div>
             </div>
