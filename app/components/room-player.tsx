@@ -603,6 +603,7 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
     !judging &&
     (session?.status === "ready" || (remainingMs ?? 0) > 0);
   const remainingAttempts = session ? Math.max(0, session.maxAttempts - session.attemptCount) : 0;
+  const attemptFeedback = session?.attempts.map((attempt, index) => formatAttemptLog(attempt, index)) || [];
 
 
   if (playState?.room.showResults && saved) {
@@ -734,6 +735,13 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
                       >
                         {finalStatusMessage(session.finalStatus)}
                         {session.answeredBeforeReveal ? " 画像表示前に正解しました。" : ""}
+                        {attemptFeedback.length ? (
+                          <div className="attempt-feedback">
+                            {attemptFeedback.map((text) => (
+                              <div key={text}>{text}</div>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     ) : playState.hasSubmission ? (
                       <div
@@ -752,27 +760,18 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
                         問題画像の読み込みに失敗しました。再読み込みしてください。
                       </div>
                     ) : message ? (
-                      <div className={`message ${messageType}`}>{message}</div>
+                      <div className={`message ${messageType}`}>
+                        {message}
+                        {attemptFeedback.length ? (
+                          <div className="attempt-feedback">
+                            {attemptFeedback.map((text) => (
+                              <div key={text}>{text}</div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
-
-                  {session?.attempts.length ? (
-                    <div className="attempt-log">
-                      <strong>解答ログ</strong>
-                      <ol className="attempt-log-list" aria-label="解答ログ">
-                        {session.attempts.map((attempt, index) => (
-                          <li
-                            className={`attempt-log-item ${
-                              attempt.isCorrect ? "correct" : "incorrect"
-                            }`}
-                            key={`${index}-${attempt.elapsedMs}`}
-                          >
-                            {formatAttemptLog(attempt, index)}
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  ) : null}
                 </>
               )}
             </div>
