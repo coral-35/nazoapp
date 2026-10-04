@@ -4,7 +4,7 @@ import { EventResults } from "@/app/components/event-results";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CHOICE_KEYS, type Results } from "@/lib/results";
+import { CHOICE_KEYS } from "@/lib/results";
 import { normalizeAnswer, sha256Hex } from "@/lib/answer";
 import {
   finalStatusMessage,
@@ -14,6 +14,7 @@ import {
 import { participantStorageKey, readStoredParticipant } from "@/lib/participant-storage";
 import { MAX_ANSWER_LENGTH } from "@/lib/input-limits";
 import { formatQuestionPlacement } from "@/lib/question-placement";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type FinalStatus = ParticipantFinalStatus;
 type SessionStatus = "ready" | "active" | "completed" | "submitting" | "submitted";
@@ -47,6 +48,7 @@ type LocalQuestionSession = {
 
 type PlayState = {
   room: {
+    id: string;
     showResults: boolean;
     roomCode: string;
     title: string;
@@ -55,7 +57,6 @@ type PlayState = {
   participant: {
     id: string;
     name: string;
-    results: Results;
   };
   question: null | {
     id: string;
@@ -225,7 +226,7 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
     const participantToken = parsed.participantToken;
 
     let active = true;
-    async function tick() {
+    async function refresh() {
       try {
         await loadState(participantToken);
       } catch (caught) {
@@ -240,13 +241,56 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
       }
     }
 
-    void tick();
-    const timer = window.setInterval(() => void tick(), 3000);
+    const refreshOnResume = () => {
+      if (document.visibilityState === "visible") {
+        void refresh();
+      }
+    };
+
+    void refresh();
+    window.addEventListener("focus", refreshOnResume);
+    document.addEventListener("visibilitychange", refreshOnResume);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshOnResume);
+      document.removeEventListener("visibilitychange", refreshOnResume);
     };
   }, [loadState, roomCode, router]);
+
+  useEffect(() => {
+    const eventId = playState?.room.id;
+    const participantToken = saved?.participantToken;
+    if (!eventId || !participantToken || playState?.room.showResults) {
+      return;
+    }
+
+    let supabase;
+    try {
+      supabase = getSupabaseBrowserClient();
+    } catch {
+      return;
+    }
+
+    const channel = supabase
+      .channel(`nazoapp:event:${eventId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "event_settings",
+          filter: `id=eq.${eventId}`
+        },
+        () => {
+          void loadState(participantToken);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [loadState, playState?.room.id, playState?.room.showResults, saved?.participantToken]);
 
   useEffect(() => {
     const question = playState?.question;
@@ -432,7 +476,7 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
       try {
         await loadState(saved.participantToken);
       } catch {
-        // The final result is persisted; regular polling will refresh the score.
+        // The final result is persisted; the next page resume or reload will refresh the state.
       }
     } catch (caught) {
       retryAfterRef.current = Date.now() + 3000;

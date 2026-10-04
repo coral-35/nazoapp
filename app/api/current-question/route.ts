@@ -1,4 +1,3 @@
-import { loadResults } from "@/lib/results.server";
 import { NextRequest, NextResponse } from "next/server";
 import { DEFAULT_MAX_ATTEMPTS, DEFAULT_QUESTION_TIME_LIMIT_MS } from "@/lib/answer";
 import { buildCorrectAnswerHashes } from "@/lib/answer-hash.server";
@@ -145,7 +144,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const resultsFor = await loadResults(room.id, normalizeSetQuestionCounts(room.set_question_counts, room.questions_per_set), participant.id);
   return attachDeviceCookie(
     NextResponse.json({
       room: {
@@ -157,8 +155,7 @@ export async function GET(request: NextRequest) {
       },
       participant: {
         id: participant.id,
-        name: participant.name,
-        results: resultsFor(participant.id)
+        name: participant.name
       },
       question,
       hasCorrectSubmission,
