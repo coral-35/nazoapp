@@ -310,6 +310,11 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
     initializedSessionKeyRef.current = key;
     submitLockedRef.current = false;
     retryAfterRef.current = 0;
+    attemptLockedRef.current = false;
+    setAnswer("");
+    setMessage("");
+    setMessageType("notice");
+    setJudging(false);
 
     const stored = readQuestionSession(key);
     const matchesCurrentQuestion =
@@ -721,27 +726,24 @@ export function RoomPlayer({ roomCode }: { roomCode: string }) {
                       <div className="muted">この問題には画像がありません。</div>
                     ) : (
                       <div className="question-image-placeholder">
-                        開始すると問題画像が表示されます
+                        <div>開始すると問題画像が表示されます</div>
+                        {canRevealImage ? (
+                          <button
+                            className="button"
+                            type="button"
+                            onClick={revealQuestionImage}
+                            disabled={imageStatus !== "ready"}
+                          >
+                            {imageStatus !== "ready"
+                              ? "画像を準備中..."
+                              : isReady && !playState.hasSubmission
+                                ? "画像を表示して開始"
+                                : "問題画像を表示"}
+                          </button>
+                        ) : null}
                       </div>
                     )}
                   </div>
-
-                  {canRevealImage ? (
-                    <div className="reveal-control">
-                      <button
-                        className="button"
-                        type="button"
-                        onClick={revealQuestionImage}
-                        disabled={imageStatus !== "ready"}
-                      >
-                        {imageStatus !== "ready"
-                          ? "画像を準備中..."
-                          : isReady && !playState.hasSubmission
-                            ? "画像を表示して開始"
-                            : "問題画像を表示"}
-                      </button>
-                    </div>
-                  ) : null}
 
                   <form className="form" onSubmit={handleAttempt}>
                     <div className="field">

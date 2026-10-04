@@ -414,6 +414,11 @@ textarea {
 .question-image-placeholder {
   color: var(--muted);
   font-weight: 700;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 16px;
+  text-align: center;
 }
 
 .question-image {
@@ -421,11 +426,6 @@ textarea {
   height: 100%;
   object-fit: contain;
   display: block;
-}
-
-.reveal-control {
-  display: grid;
-  min-height: 46px;
 }
 
 .choice-buttons {
